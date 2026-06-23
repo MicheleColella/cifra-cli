@@ -2,8 +2,6 @@ package keychain
 
 import "errors"
 
-const service = "envault"
-
 // Store seals and retrieves private key material in the OS-native secret store.
 type Store interface {
 	Seal(id string, privateKey []byte) error

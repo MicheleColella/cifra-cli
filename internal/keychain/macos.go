@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+const service = "envault"
+
 type macOSStore struct{}
 
 // New returns a Store backed by macOS Keychain via the security(1) CLI.

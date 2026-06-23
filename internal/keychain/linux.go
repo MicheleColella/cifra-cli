@@ -6,7 +6,9 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
+	"unicode"
 )
 
 type linuxStore struct{}
@@ -22,12 +24,15 @@ func New() (Store, error) {
 // Seal stores privateKey in the user's kernel keyring under "envault:<id>".
 // Returns ErrAlreadyExists if a key already exists for id.
 func (s *linuxStore) Seal(id string, privateKey []byte) error {
+	if err := validateID(id); err != nil {
+		return err
+	}
 	if s.exists(id) {
 		return fmt.Errorf("%w: %s", ErrAlreadyExists, id)
 	}
 	encoded := base64.StdEncoding.EncodeToString(privateKey)
 	// keyctl padd reads the key payload from stdin.
-	cmd := exec.Command("keyctl", "padd", "user", keyName(id), "@u")
+	cmd := exec.Command("keyctl", "padd", "user", keyName(id), "@u") //nolint:gosec // id validated by validateID above
 	cmd.Stdin = strings.NewReader(encoded)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("keyring store failed: %w\n%s", err, strings.TrimSpace(string(out)))
@@ -37,14 +42,19 @@ func (s *linuxStore) Seal(id string, privateKey []byte) error {
 
 // Unseal retrieves the private key for id from the kernel keyring.
 func (s *linuxStore) Unseal(id string) ([]byte, error) {
-	search := exec.Command("keyctl", "search", "@u", "user", keyName(id))
+	if err := validateID(id); err != nil {
+		return nil, err
+	}
+	search := exec.Command("keyctl", "search", "@u", "user", keyName(id)) //nolint:gosec // id validated above
 	idOut, err := search.Output()
 	if err != nil {
 		return nil, ErrNotFound
 	}
-	keyID := strings.TrimSpace(string(idOut))
-
-	print := exec.Command("keyctl", "print", keyID)
+	keyID, err := parseKeyID(strings.TrimSpace(string(idOut)))
+	if err != nil {
+		return nil, err
+	}
+	print := exec.Command("keyctl", "print", keyID) //nolint:gosec // keyID is a numeric kernel serial, validated by parseKeyID
 	out, err := print.Output()
 	if err != nil {
 		return nil, fmt.Errorf("keyring read failed: %w", err)
@@ -59,13 +69,19 @@ func (s *linuxStore) Unseal(id string) ([]byte, error) {
 
 // Delete removes the keyring entry for id.
 func (s *linuxStore) Delete(id string) error {
-	search := exec.Command("keyctl", "search", "@u", "user", keyName(id))
+	if err := validateID(id); err != nil {
+		return err
+	}
+	search := exec.Command("keyctl", "search", "@u", "user", keyName(id)) //nolint:gosec // id validated above
 	idOut, err := search.Output()
 	if err != nil {
 		return ErrNotFound
 	}
-	keyID := strings.TrimSpace(string(idOut))
-	cmd := exec.Command("keyctl", "unlink", keyID, "@u")
+	keyID, err := parseKeyID(strings.TrimSpace(string(idOut)))
+	if err != nil {
+		return err
+	}
+	cmd := exec.Command("keyctl", "unlink", keyID, "@u") //nolint:gosec // keyID is a numeric kernel serial, validated by parseKeyID
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("keyring delete failed: %w\n%s", err, strings.TrimSpace(string(out)))
 	}
@@ -73,10 +89,32 @@ func (s *linuxStore) Delete(id string) error {
 }
 
 func (s *linuxStore) exists(id string) bool {
-	cmd := exec.Command("keyctl", "search", "@u", "user", keyName(id))
+	cmd := exec.Command("keyctl", "search", "@u", "user", keyName(id)) //nolint:gosec // callers must validate id first
 	return cmd.Run() == nil
 }
 
 func keyName(id string) string {
 	return "envault:" + id
+}
+
+// validateID rejects ids containing characters unsafe for keyctl key names.
+// Allowed: letters, digits, hyphens, underscores, dots, forward slashes.
+func validateID(id string) error {
+	if id == "" {
+		return fmt.Errorf("secret id must not be empty")
+	}
+	for _, r := range id {
+		if !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '-' && r != '_' && r != '.' && r != '/' {
+			return fmt.Errorf("invalid secret id %q: only letters, digits, -, _, ., / are allowed", id)
+		}
+	}
+	return nil
+}
+
+// parseKeyID validates that keyctl returned a numeric kernel key serial.
+func parseKeyID(s string) (string, error) {
+	if _, err := strconv.ParseInt(s, 10, 64); err != nil {
+		return "", fmt.Errorf("unexpected keyctl output: %q", s)
+	}
+	return s, nil
 }
