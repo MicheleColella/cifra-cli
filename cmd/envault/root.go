@@ -18,10 +18,10 @@ func Execute(ver string) {
 
 func newRootCmd(ver string) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:          "envault",
-		Short:        "Git-backed, zero-trust secrets CLI",
-		Long:         "Envault encrypts your secrets inside your team's Git repo.\nPrivate keys never leave your machine; the remote only stores ciphertext.",
-		Version:      ver,
+		Use:           "envault",
+		Short:         "Git-backed, zero-trust secrets CLI",
+		Long:          "Envault encrypts your secrets inside your team's Git repo.\nPrivate keys never leave your machine; the remote only stores ciphertext.",
+		Version:       ver,
 		SilenceErrors: true,
 		SilenceUsage:  true,
 	}
