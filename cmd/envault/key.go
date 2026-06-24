@@ -167,7 +167,7 @@ func runKeyExport(id string, kc keychain.Store) error {
 	}
 
 	line := fmt.Sprintf("%s %s", id, hex.EncodeToString(pub[:]))
-	fmt.Fprintln(ui.Out, line)
+	_, _ = fmt.Fprintln(ui.Out, line)
 	return nil
 }
 

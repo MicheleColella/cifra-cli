@@ -22,7 +22,7 @@ type Recipient struct {
 
 // AddRecipient appends r to the recipients file inside repoRoot.
 // Returns ErrRecipientAlreadyExists if an entry with the same ID is already present.
-func AddRecipient(repoRoot string, r Recipient) error {
+func AddRecipient(repoRoot string, r Recipient) (err error) {
 	existing, err := ListRecipients(repoRoot)
 	if err != nil {
 		return err
@@ -38,7 +38,11 @@ func AddRecipient(repoRoot string, r Recipient) error {
 	if err != nil {
 		return fmt.Errorf("open recipients file: %w", err)
 	}
-	defer f.Close()
+	defer func() {
+		if cerr := f.Close(); cerr != nil && err == nil {
+			err = fmt.Errorf("close recipients file: %w", cerr)
+		}
+	}()
 
 	line := fmt.Sprintf("%s %s\n", r.ID, hex.EncodeToString(r.PublicKey[:]))
 	if _, err := fmt.Fprint(f, line); err != nil {
@@ -58,7 +62,7 @@ func ListRecipients(repoRoot string) ([]Recipient, error) {
 		}
 		return nil, fmt.Errorf("open recipients file: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var out []Recipient
 	sc := bufio.NewScanner(f)
