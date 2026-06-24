@@ -119,7 +119,7 @@ func writeRecipients(repoRoot string, recipients []Recipient) error {
 
 	var buf strings.Builder
 	for _, r := range recipients {
-		buf.WriteString(fmt.Sprintf("%s %s\n", r.ID, hex.EncodeToString(r.PublicKey[:])))
+		_, _ = fmt.Fprintf(&buf, "%s %s\n", r.ID, hex.EncodeToString(r.PublicKey[:]))
 	}
 
 	if err := os.WriteFile(tmpPath, []byte(buf.String()), 0o600); err != nil {

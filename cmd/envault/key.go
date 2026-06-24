@@ -256,7 +256,7 @@ func runKeyDelete(id string, kc keychain.Store, repoRoot string, keepRecipient b
 		ui.Warn("could not remove from .envault/recipients: " + err.Error())
 		return nil
 	}
-	ui.Info(fmt.Sprintf("removed from .envault/recipients"))
+	ui.Info("removed from .envault/recipients")
 	return nil
 }
 
