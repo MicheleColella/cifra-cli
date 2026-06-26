@@ -83,13 +83,21 @@ func CleanVault(repoRoot string) error {
 	return nil
 }
 
-// MergeOrigin fast-forward merges origin/<current-branch> into HEAD.
+// MergeOrigin merges origin/<current-branch> into HEAD. Fast-forwards when
+// possible; creates a merge commit for diverged histories. Returns
+// ErrMergeConflict when the merge leaves unresolved conflicts so the caller
+// can apply application-level resolution before calling ContinueMerge or AbortMerge.
 func MergeOrigin(repoRoot string) error {
 	branch, err := CurrentBranch(repoRoot)
 	if err != nil {
 		return fmt.Errorf("detect current branch: %w", err)
 	}
-	if err := gitRun(repoRoot, "merge", "--ff-only", "origin/"+branch); err != nil {
+	if err := gitRun(repoRoot, "merge", "--no-edit", "origin/"+branch); err != nil {
+		// Distinguish conflict (resolvable) from a fatal git error.
+		conflicts, _ := ConflictedFiles(repoRoot)
+		if len(conflicts) > 0 {
+			return ErrMergeConflict
+		}
 		return fmt.Errorf("merge from origin/%s: %w", branch, err)
 	}
 	return nil

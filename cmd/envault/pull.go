@@ -1,8 +1,10 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -40,15 +42,28 @@ func runPull(repoRoot string) error {
 		return err
 	}
 
-	// Remove any untracked .envault/ files (e.g., from a local runInit that was
-	// never pushed) so the fast-forward merge is not blocked. Committed files are
-	// left untouched; the remote state takes precedence for un-pushed init output.
 	if err := git.CleanVault(repoRoot); err != nil {
 		return err
 	}
 
-	if err := git.MergeOrigin(repoRoot); err != nil {
-		return err
+	mergeErr := git.MergeOrigin(repoRoot)
+	if mergeErr != nil {
+		if !errors.Is(mergeErr, git.ErrMergeConflict) {
+			return mergeErr
+		}
+		// secrets.enc conflicted — attempt a structured entry-level merge.
+		warnings, err := resolveSecretsConflict(repoRoot)
+		if err != nil {
+			_ = git.AbortMerge(repoRoot)
+			return err
+		}
+		if err := git.ContinueMerge(repoRoot); err != nil {
+			_ = git.AbortMerge(repoRoot)
+			return fmt.Errorf("finalize merge: %w", err)
+		}
+		for _, w := range warnings {
+			ui.Warn(w)
+		}
 	}
 
 	after, err := vault.LoadStore(repoRoot)
@@ -73,4 +88,98 @@ func runPull(repoRoot string) error {
 		ui.Info(fmt.Sprintf("rotated  %s", strings.Join(changes.Rotated, ", ")))
 	}
 	return nil
+}
+
+// resolveSecretsConflict handles a merge conflict that involves secrets.enc.
+// It reads the three stages from the git index, performs a secret-level 3-way
+// merge, writes the result, and stages the file. Returns informational warnings
+// (e.g., a recipient losing access). Returns an error when:
+//   - non-vault files also conflict (caller must resolve manually)
+//   - entry-level conflicts are irresolvable (both sides modified the same secret)
+func resolveSecretsConflict(repoRoot string) ([]string, error) {
+	conflicted, err := git.ConflictedFiles(repoRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	hasSecretsConflict := false
+	var otherConflicts []string
+	secretsPath := filepath.ToSlash(filepath.Join(vault.DirName, "secrets.enc"))
+
+	for _, f := range conflicted {
+		if filepath.ToSlash(f) == secretsPath {
+			hasSecretsConflict = true
+		} else {
+			otherConflicts = append(otherConflicts, f)
+		}
+	}
+
+	if len(otherConflicts) > 0 {
+		return nil, fmt.Errorf(
+			"merge conflicts in non-vault files — resolve manually: %s",
+			strings.Join(otherConflicts, ", "),
+		)
+	}
+	if !hasSecretsConflict {
+		return nil, fmt.Errorf(
+			"unexpected merge state — ErrMergeConflict raised but no conflict found in %s",
+			secretsPath,
+		)
+	}
+
+	baseData, err := git.ConflictStage(repoRoot, 1, secretsPath)
+	if err != nil {
+		return nil, fmt.Errorf("read merge base: %w", err)
+	}
+	oursData, err := git.ConflictStage(repoRoot, 2, secretsPath)
+	if err != nil {
+		return nil, fmt.Errorf("read ours: %w", err)
+	}
+	theirsData, err := git.ConflictStage(repoRoot, 3, secretsPath)
+	if err != nil {
+		return nil, fmt.Errorf("read theirs: %w", err)
+	}
+
+	base := parseStoreOrEmpty(baseData)
+	ours := parseStoreOrEmpty(oursData)
+	theirs := parseStoreOrEmpty(theirsData)
+
+	merged, warnings, entryConflicts := vault.MergeStores(base, ours, theirs)
+	if len(entryConflicts) > 0 {
+		msgs := make([]string, len(entryConflicts))
+		for i, c := range entryConflicts {
+			msgs[i] = fmt.Sprintf("  [%s (%s)] %s", c.Name, c.Kind, c.Reason)
+		}
+		return nil, fmt.Errorf(
+			"irresolvable secret-level conflicts — rotate affected secrets after resolving:\n%s",
+			strings.Join(msgs, "\n"),
+		)
+	}
+
+	if err := vault.SaveStore(repoRoot, merged); err != nil {
+		return nil, fmt.Errorf("save merged store: %w", err)
+	}
+	if err := git.StageFile(repoRoot, secretsPath); err != nil {
+		return nil, fmt.Errorf("stage resolved secrets: %w", err)
+	}
+
+	warnMsgs := make([]string, len(warnings))
+	for i, w := range warnings {
+		warnMsgs[i] = fmt.Sprintf("%s (%s): %s", w.Name, w.Kind, w.Message)
+	}
+	return warnMsgs, nil
+}
+
+// parseStoreOrEmpty parses data into a Store, returning an empty store on nil
+// input or parse error. Used when a stage may not exist (e.g., file was
+// newly created on one side of the merge).
+func parseStoreOrEmpty(data []byte) *vault.Store {
+	if data == nil {
+		return &vault.Store{Version: 1}
+	}
+	s, err := vault.ParseStore(data)
+	if err != nil {
+		return &vault.Store{Version: 1}
+	}
+	return s
 }

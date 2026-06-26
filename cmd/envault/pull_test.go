@@ -13,6 +13,7 @@ import (
 	"github.com/MicheleColella/envault-cli/internal/vault"
 )
 
+
 func TestRunPull_NotInitialized(t *testing.T) {
 	err := runPull(t.TempDir())
 	if err == nil {
@@ -137,6 +138,100 @@ func TestRunPull_ReportsAddedSecrets(t *testing.T) {
 	}
 	if !strings.Contains(out, "added") {
 		t.Errorf("expected 'added' in output: %q", out)
+	}
+}
+
+func TestRunPull_ResolvesSecretsConflict(t *testing.T) {
+	// Scenario:
+	//  - common ancestor has one entry (BASE_KEY)
+	//  - repoA adds KEY_A and pushes
+	//  - repoB adds KEY_B independently and commits
+	//  - repoB pulls → merge conflict on secrets.enc
+	//  - runPull resolves to [BASE_KEY, KEY_A, KEY_B] via 3-way merge
+
+	_, bare := initTestRepo(t, "alice@test.com", "Alice")
+
+	repoA := t.TempDir()
+	mustGit(t, repoA, "clone", bare, repoA)
+	mustGit(t, repoA, "config", "user.email", "alice@test.com")
+	mustGit(t, repoA, "config", "user.name", "Alice")
+
+	repoB := t.TempDir()
+	mustGit(t, repoB, "clone", bare, repoB)
+	mustGit(t, repoB, "config", "user.email", "bob@test.com")
+	mustGit(t, repoB, "config", "user.name", "Bob")
+
+	ui.Out = &bytes.Buffer{}
+	ui.Err = &bytes.Buffer{}
+	t.Cleanup(func() {
+		ui.Out = os.Stdout
+		ui.Err = os.Stderr
+	})
+
+	// Shared ancestor: both A and B clone the repo with a BASE_KEY entry.
+	baseStore := &vault.Store{
+		Version: 1,
+		Entries: []vault.Entry{
+			{Name: "BASE_KEY", Kind: vault.KindEnv, UpdatedAt: time.Now().UTC()},
+		},
+	}
+
+	// A writes base store, commits, and pushes.
+	saveTestStore(t, repoA, baseStore)
+	mustGit(t, repoA, "add", ".envault/")
+	mustGit(t, repoA, "commit", "-m", "base")
+	mustGit(t, repoA, "push", "origin", "HEAD")
+
+	// B pulls the base.
+	mustGit(t, repoB, "pull", "origin", "main")
+
+	// A adds KEY_A to its store and pushes.
+	aStore := &vault.Store{
+		Version: 1,
+		Entries: []vault.Entry{
+			{Name: "BASE_KEY", Kind: vault.KindEnv, UpdatedAt: baseStore.Entries[0].UpdatedAt},
+			{Name: "KEY_A", Kind: vault.KindEnv, UpdatedAt: time.Now().UTC()},
+		},
+	}
+	saveTestStore(t, repoA, aStore)
+	mustGit(t, repoA, "add", ".envault/")
+	mustGit(t, repoA, "commit", "-m", "add KEY_A")
+	mustGit(t, repoA, "push", "origin", "HEAD")
+
+	// B independently adds KEY_B and commits (diverged from A).
+	bStore := &vault.Store{
+		Version: 1,
+		Entries: []vault.Entry{
+			{Name: "BASE_KEY", Kind: vault.KindEnv, UpdatedAt: baseStore.Entries[0].UpdatedAt},
+			{Name: "KEY_B", Kind: vault.KindEnv, UpdatedAt: time.Now().UTC()},
+		},
+	}
+	saveTestStore(t, repoB, bStore)
+	mustGit(t, repoB, "add", ".envault/")
+	mustGit(t, repoB, "commit", "-m", "add KEY_B")
+
+	// B pulls — this causes a merge conflict on secrets.enc which must be resolved.
+	var outBuf bytes.Buffer
+	ui.Out = &outBuf
+
+	if err := runPull(repoB); err != nil {
+		t.Fatalf("runPull conflict: %v", err)
+	}
+
+	// After the pull, secrets.enc should contain all three entries.
+	finalStore, err := vault.LoadStore(repoB)
+	if err != nil {
+		t.Fatalf("LoadStore after conflict pull: %v", err)
+	}
+
+	nameSet := make(map[string]bool)
+	for _, e := range finalStore.Entries {
+		nameSet[e.Name] = true
+	}
+	for _, want := range []string{"BASE_KEY", "KEY_A", "KEY_B"} {
+		if !nameSet[want] {
+			t.Errorf("merged store missing %q; entries: %v", want, nameSet)
+		}
 	}
 }
 
