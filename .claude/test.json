@@ -1,0 +1,10 @@
+{
+  "suites": [
+    {
+      "name": "go",
+      "cmd": "bash .claude/go-test-json.sh .test-tmp/go.json",
+      "report": ".test-tmp/go.json",
+      "format": "vitest"
+    }
+  ]
+}

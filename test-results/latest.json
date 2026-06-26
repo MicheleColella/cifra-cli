@@ -1,0 +1,10 @@
+{
+  "total": 250,
+  "passed": 250,
+  "failed": 0,
+  "failures": [],
+  "status": "pass",
+  "coverage": null,
+  "framework": "vitest",
+  "ts": "2026-06-26T09:12:30Z"
+}
