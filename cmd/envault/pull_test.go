@@ -181,8 +181,9 @@ func TestRunPull_ResolvesSecretsConflict(t *testing.T) {
 	mustGit(t, repoA, "commit", "-m", "base")
 	mustGit(t, repoA, "push", "origin", "HEAD")
 
-	// B pulls the base.
-	mustGit(t, repoB, "pull", "origin", "main")
+	// B pulls the base — fetch + merge FETCH_HEAD to avoid hardcoding branch name.
+	mustGit(t, repoB, "fetch", "origin")
+	mustGit(t, repoB, "merge", "FETCH_HEAD")
 
 	// A adds KEY_A to its store and pushes.
 	aStore := &vault.Store{
