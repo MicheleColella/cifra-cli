@@ -127,28 +127,15 @@ func resolveSecretsConflict(repoRoot string) ([]string, error) {
 		)
 	}
 
-	baseData, err := git.ConflictStage(repoRoot, 1, secretsPath)
-	if err != nil {
-		return nil, fmt.Errorf("read merge base: %w", err)
-	}
-	oursData, err := git.ConflictStage(repoRoot, 2, secretsPath)
-	if err != nil {
-		return nil, fmt.Errorf("read ours: %w", err)
-	}
-	theirsData, err := git.ConflictStage(repoRoot, 3, secretsPath)
-	if err != nil {
-		return nil, fmt.Errorf("read theirs: %w", err)
-	}
-
-	base, err := parseStoreOrEmpty(baseData, "merge base")
+	base, err := loadConflictStore(repoRoot, 1, secretsPath, "merge base")
 	if err != nil {
 		return nil, err
 	}
-	ours, err := parseStoreOrEmpty(oursData, "ours")
+	ours, err := loadConflictStore(repoRoot, 2, secretsPath, "ours")
 	if err != nil {
 		return nil, err
 	}
-	theirs, err := parseStoreOrEmpty(theirsData, "theirs")
+	theirs, err := loadConflictStore(repoRoot, 3, secretsPath, "theirs")
 	if err != nil {
 		return nil, err
 	}
@@ -179,16 +166,20 @@ func resolveSecretsConflict(repoRoot string) ([]string, error) {
 	return warnMsgs, nil
 }
 
-// parseStoreOrEmpty returns an empty Store when data is nil (file absent at
-// that merge stage). For non-nil data a parse failure is surfaced as an error
-// rather than silently discarding secrets.
-func parseStoreOrEmpty(data []byte, stageName string) (*vault.Store, error) {
+// loadConflictStore reads secrets.enc at a git merge stage and parses it.
+// Returns an empty store when the file was absent at that stage (nil data from
+// ConflictStage). A parse failure on non-nil data is surfaced as an error.
+func loadConflictStore(repoRoot string, stage int, path, label string) (*vault.Store, error) {
+	data, err := git.ConflictStage(repoRoot, stage, path)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", label, err)
+	}
 	if data == nil {
 		return &vault.Store{Version: 1}, nil
 	}
 	s, err := vault.ParseStore(data)
 	if err != nil {
-		return nil, fmt.Errorf("parse secrets.enc at stage %q: %w", stageName, err)
+		return nil, fmt.Errorf("parse secrets.enc at stage %q: %w", label, err)
 	}
 	return s, nil
 }

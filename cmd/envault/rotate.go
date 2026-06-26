@@ -44,19 +44,21 @@ func runRotate(repoRoot, name string, kc keychain.Store) error {
 		return err
 	}
 
-	var found *vault.Entry
-	for i := range store.Entries {
-		if store.Entries[i].Name != name {
+	var (
+		found   vault.Entry
+		foundOK bool
+	)
+	for _, e := range store.Entries {
+		if e.Name != name {
 			continue
 		}
-		if store.Entries[i].Kind != vault.KindEnv {
+		if e.Kind != vault.KindEnv {
 			return fmt.Errorf("%q is a file entry — only env secrets can be rotated via this command", name)
 		}
-		e := store.Entries[i]
-		found = &e
+		found, foundOK = e, true
 		break
 	}
-	if found == nil {
+	if !foundOK {
 		return fmt.Errorf("secret %q not found in vault", name)
 	}
 

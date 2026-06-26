@@ -96,11 +96,11 @@ func runRun(repoRoot string, args []string, kc keychain.Store, f runFilter) erro
 		if e.Kind != vault.KindEnv {
 			continue
 		}
-		if len(onlySet) > 0 {
+		if onlySet != nil {
 			if _, ok := onlySet[e.Name]; !ok {
 				continue
 			}
-		} else if len(exceptSet) > 0 {
+		} else if exceptSet != nil {
 			if _, ok := exceptSet[e.Name]; ok {
 				continue
 			}
@@ -139,7 +139,11 @@ func runRun(repoRoot string, args []string, kc keychain.Store, f runFilter) erro
 	ui.OK(fmt.Sprintf("injected %d env var(s) — 0 bytes written to disk", len(envEntries)))
 
 	// Merge parent env with vault secrets; vault entries override duplicates.
-	childEnv := append(os.Environ(), extraEnv...)
+	// Pre-size to avoid the realloc that append(os.Environ(), ...) would cause.
+	base := os.Environ()
+	childEnv := make([]string, 0, len(base)+len(extraEnv))
+	childEnv = append(childEnv, base...)
+	childEnv = append(childEnv, extraEnv...)
 
 	cmd := exec.Command(args[0], args[1:]...) //nolint:gosec // user-supplied command is intentional
 	cmd.Env = childEnv

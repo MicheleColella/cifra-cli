@@ -138,10 +138,7 @@ func rewrapNeeded(store *vault.Store, currentIDSet map[string]struct{}) bool {
 // privKey to unseal the existing DEKs. Returns the count of re-wrapped entries
 // and the updated store. This is a pure crypto operation with no OS side-effects.
 func rewrapStore(store *vault.Store, privKey envcrypto.PrivateKey, keys []envcrypto.PublicKey, ids []string) (int, *vault.Store, error) {
-	idSet := make(map[string]struct{}, len(ids))
-	for _, id := range ids {
-		idSet[id] = struct{}{}
-	}
+	idSet := toSet(ids)
 
 	now := time.Now().UTC()
 	entries := make([]vault.Entry, len(store.Entries))
