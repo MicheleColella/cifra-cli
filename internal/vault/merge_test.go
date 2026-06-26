@@ -19,7 +19,6 @@ func makeEntry(name string, kind EntryKind, recipients []string, offsetSec int) 
 	}
 }
 
-
 // findEntry returns the named entry in the store, or nil.
 func findEntryIn(s *Store, name string) *Entry {
 	for i := range s.Entries {
@@ -168,7 +167,7 @@ func TestMergeStores_BothModifiedDifferently(t *testing.T) {
 func TestMergeStores_OursDeletedUnchanged(t *testing.T) {
 	orig := makeEntry("OLD", KindEnv, nil, 0)
 	base := makeStore([]Entry{orig})
-	ours := makeStore(nil)     // deleted
+	ours := makeStore(nil)             // deleted
 	theirs := makeStore([]Entry{orig}) // unchanged
 
 	merged, _, conflicts := MergeStores(base, ours, theirs)
@@ -184,7 +183,7 @@ func TestMergeStores_TheirsDeletedUnchanged(t *testing.T) {
 	orig := makeEntry("GONE", KindEnv, nil, 0)
 	base := makeStore([]Entry{orig})
 	ours := makeStore([]Entry{orig}) // unchanged
-	theirs := makeStore(nil)   // deleted
+	theirs := makeStore(nil)         // deleted
 
 	merged, _, conflicts := MergeStores(base, ours, theirs)
 	if len(conflicts) != 0 {
@@ -199,7 +198,7 @@ func TestMergeStores_OursModifiedTheirsDeleted(t *testing.T) {
 	orig := makeEntry("KEY", KindEnv, nil, 0)
 	base := makeStore([]Entry{orig})
 	ours := makeStore([]Entry{makeEntry("KEY", KindEnv, nil, 5)}) // modified
-	theirs := makeStore(nil)                                 // deleted
+	theirs := makeStore(nil)                                      // deleted
 
 	_, _, conflicts := MergeStores(base, ours, theirs)
 	if len(conflicts) != 1 {

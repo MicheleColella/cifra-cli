@@ -13,7 +13,6 @@ import (
 	"github.com/MicheleColella/envault-cli/internal/vault"
 )
 
-
 func TestRunPull_NotInitialized(t *testing.T) {
 	err := runPull(t.TempDir())
 	if err == nil {
