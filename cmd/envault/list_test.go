@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"strings"
 	"testing"
@@ -114,5 +115,48 @@ func TestRunList_MultipleEntries(t *testing.T) {
 		if !strings.Contains(got, name) {
 			t.Errorf("expected %s in output, got: %s", name, got)
 		}
+	}
+}
+
+func TestRunList_AgentModeEmitsJSON(t *testing.T) {
+	root := initVaultRoot(t)
+	addTestRecipient(t, root, "alice@example.com")
+
+	ui.Err = &bytes.Buffer{}
+	ui.AgentMode = true
+	t.Cleanup(func() {
+		ui.Out = os.Stdout
+		ui.Err = os.Stderr
+		ui.AgentMode = false
+	})
+
+	for _, kv := range [][2]string{{"API_KEY", "v1"}, {"DB_URL", "v2"}} {
+		if err := runAdd(root, kv[0], []byte(kv[1])); err != nil {
+			t.Fatalf("runAdd %s: %v", kv[0], err)
+		}
+	}
+
+	var out bytes.Buffer
+	ui.Out = &out
+
+	if err := runList(root); err != nil {
+		t.Fatalf("runList in agent mode: %v", err)
+	}
+
+	raw := strings.TrimSpace(out.String())
+	var envelope map[string]interface{}
+	if err := json.Unmarshal([]byte(raw), &envelope); err != nil {
+		t.Fatalf("output not valid JSON: %v — raw: %s", err, raw)
+	}
+	if envelope["ok"] != true {
+		t.Errorf("expected ok=true, got: %v", envelope["ok"])
+	}
+	data, _ := envelope["data"].([]interface{})
+	if len(data) != 2 {
+		t.Errorf("expected 2 entries, got %d", len(data))
+	}
+	entry, _ := data[0].(map[string]interface{})
+	if entry["name"] == "" {
+		t.Error("entry.name should not be empty")
 	}
 }

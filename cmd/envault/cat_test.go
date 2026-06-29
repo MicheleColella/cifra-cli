@@ -32,7 +32,7 @@ func TestRunCat_DecryptsSecret(t *testing.T) {
 	var out bytes.Buffer
 	ui.Out = &out
 
-	if err := runCat(root, "API_KEY", kc); err != nil {
+	if err := runCat(root, "API_KEY", kc, false); err != nil {
 		t.Fatalf("runCat: %v", err)
 	}
 
@@ -57,7 +57,7 @@ func TestRunCat_NotFound(t *testing.T) {
 		ui.Err = os.Stderr
 	})
 
-	err := runCat(root, "NONEXISTENT", kc)
+	err := runCat(root, "NONEXISTENT", kc, false)
 	if err == nil || !strings.Contains(err.Error(), "not found") {
 		t.Fatalf("expected 'not found' error, got %v", err)
 	}
@@ -67,7 +67,7 @@ func TestRunCat_RequiresInitializedVault(t *testing.T) {
 	root := t.TempDir()
 	kc := newMemStore()
 
-	err := runCat(root, "KEY", kc)
+	err := runCat(root, "KEY", kc, false)
 	if err == nil || !strings.Contains(err.Error(), "not initialized") {
 		t.Fatalf("expected 'not initialized' error, got %v", err)
 	}
@@ -90,7 +90,7 @@ func TestRunCat_NoMatchingKeyInKeychain(t *testing.T) {
 
 	kc := newMemStore() // empty — alice's key is not in this keychain
 
-	err := runCat(root, "API_KEY", kc)
+	err := runCat(root, "API_KEY", kc, false)
 	if err == nil || !strings.Contains(err.Error(), "no private key") {
 		t.Fatalf("expected 'no private key' error, got %v", err)
 	}
@@ -120,7 +120,7 @@ func TestRunCat_WarningGoesToStderr(t *testing.T) {
 	stdout.Reset()
 	stderr.Reset()
 
-	if err := runCat(root, "API_KEY", kc); err != nil {
+	if err := runCat(root, "API_KEY", kc, false); err != nil {
 		t.Fatalf("runCat: %v", err)
 	}
 
@@ -129,6 +129,71 @@ func TestRunCat_WarningGoesToStderr(t *testing.T) {
 	}
 	if strings.Contains(stdout.String(), "WARNING") {
 		t.Error("WARNING must not appear on stdout")
+	}
+}
+
+func TestRunCat_AgentModeBlocksOutput(t *testing.T) {
+	root := initVaultRoot(t)
+	priv := addTestRecipient(t, root, "alice@example.com")
+
+	kc := newMemStore()
+	if err := kc.Seal("alice@example.com", priv[:]); err != nil {
+		t.Fatalf("kc.Seal: %v", err)
+	}
+
+	ui.Out = &bytes.Buffer{}
+	ui.Err = &bytes.Buffer{}
+	ui.AgentMode = true
+	t.Cleanup(func() {
+		ui.Out = os.Stdout
+		ui.Err = os.Stderr
+		ui.AgentMode = false
+	})
+
+	if err := runAdd(root, "API_KEY", []byte("s3cr3t")); err != nil {
+		t.Fatalf("runAdd: %v", err)
+	}
+
+	err := runCat(root, "API_KEY", kc, false)
+	if err == nil {
+		t.Fatal("expected error in agent mode, got nil")
+	}
+	if !strings.Contains(err.Error(), "agent mode") {
+		t.Errorf("error should mention agent mode, got: %v", err)
+	}
+}
+
+func TestRunCat_AgentModeForceAllows(t *testing.T) {
+	root := initVaultRoot(t)
+	priv := addTestRecipient(t, root, "alice@example.com")
+
+	kc := newMemStore()
+	if err := kc.Seal("alice@example.com", priv[:]); err != nil {
+		t.Fatalf("kc.Seal: %v", err)
+	}
+
+	ui.Out = &bytes.Buffer{}
+	ui.Err = &bytes.Buffer{}
+	ui.AgentMode = true
+	t.Cleanup(func() {
+		ui.Out = os.Stdout
+		ui.Err = os.Stderr
+		ui.AgentMode = false
+	})
+
+	if err := runAdd(root, "API_KEY", []byte("s3cr3t")); err != nil {
+		t.Fatalf("runAdd: %v", err)
+	}
+
+	var out bytes.Buffer
+	ui.Out = &out
+
+	if err := runCat(root, "API_KEY", kc, true); err != nil {
+		t.Fatalf("runCat with --force: %v", err)
+	}
+
+	if !strings.Contains(out.String(), "s3cr3t") {
+		t.Errorf("expected decrypted value with --force, got: %s", out.String())
 	}
 }
 
@@ -157,7 +222,7 @@ func TestRunExport_DecryptsAllSecrets(t *testing.T) {
 	var out bytes.Buffer
 	ui.Out = &out
 
-	if err := runExport(root, kc); err != nil {
+	if err := runExport(root, kc, false); err != nil {
 		t.Fatalf("runExport: %v", err)
 	}
 
@@ -182,7 +247,7 @@ func TestRunExport_EmptyVault(t *testing.T) {
 		ui.Err = os.Stderr
 	})
 
-	if err := runExport(root, newMemStore()); err != nil {
+	if err := runExport(root, newMemStore(), false); err != nil {
 		t.Fatalf("runExport: %v", err)
 	}
 
@@ -194,7 +259,7 @@ func TestRunExport_EmptyVault(t *testing.T) {
 func TestRunExport_RequiresInitializedVault(t *testing.T) {
 	root := t.TempDir()
 
-	err := runExport(root, newMemStore())
+	err := runExport(root, newMemStore(), false)
 	if err == nil || !strings.Contains(err.Error(), "not initialized") {
 		t.Fatalf("expected 'not initialized' error, got %v", err)
 	}
@@ -224,7 +289,7 @@ func TestRunExport_WarningGoesToStderr(t *testing.T) {
 	stdout.Reset()
 	stderr.Reset()
 
-	if err := runExport(root, kc); err != nil {
+	if err := runExport(root, kc, false); err != nil {
 		t.Fatalf("runExport: %v", err)
 	}
 
@@ -233,5 +298,26 @@ func TestRunExport_WarningGoesToStderr(t *testing.T) {
 	}
 	if strings.Contains(stdout.String(), "WARNING") {
 		t.Error("WARNING must not appear on stdout")
+	}
+}
+
+func TestRunExport_AgentModeBlocksOutput(t *testing.T) {
+	root := initVaultRoot(t)
+
+	ui.Out = &bytes.Buffer{}
+	ui.Err = &bytes.Buffer{}
+	ui.AgentMode = true
+	t.Cleanup(func() {
+		ui.Out = os.Stdout
+		ui.Err = os.Stderr
+		ui.AgentMode = false
+	})
+
+	err := runExport(root, newMemStore(), false)
+	if err == nil {
+		t.Fatal("expected error in agent mode, got nil")
+	}
+	if !strings.Contains(err.Error(), "agent mode") {
+		t.Errorf("error should mention agent mode, got: %v", err)
 	}
 }

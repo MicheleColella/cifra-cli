@@ -106,17 +106,17 @@ func TestHookCmd_InstallSubcommandRegistered(t *testing.T) {
 	}
 }
 
-func TestHookInstallCmd_RequiresGitFlag(t *testing.T) {
+func TestHookInstallCmd_RequiresFlagSelection(t *testing.T) {
 	root := newRootCmd("dev")
 	root.SetOut(&bytes.Buffer{})
 	root.SetErr(&bytes.Buffer{})
-	root.SetArgs([]string{"hook", "install"}) // missing --git
+	root.SetArgs([]string{"hook", "install"}) // missing --git or --claude
 
 	err := root.Execute()
 	if err == nil {
-		t.Fatal("expected error when --git is omitted, got nil")
+		t.Fatal("expected error when no flag is given, got nil")
 	}
-	if !strings.Contains(err.Error(), "--git") {
-		t.Errorf("error = %q, want mention of --git", err.Error())
+	if !strings.Contains(err.Error(), "--git") && !strings.Contains(err.Error(), "--claude") {
+		t.Errorf("error = %q, want mention of --git or --claude", err.Error())
 	}
 }

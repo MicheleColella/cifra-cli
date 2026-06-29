@@ -17,6 +17,8 @@ func Execute(ver string) {
 }
 
 func newRootCmd(ver string) *cobra.Command {
+	var agentSafe bool
+
 	cmd := &cobra.Command{
 		Use:           "envault",
 		Short:         "Git-backed, zero-trust secrets CLI",
@@ -24,7 +26,17 @@ func newRootCmd(ver string) *cobra.Command {
 		Version:       ver,
 		SilenceErrors: true,
 		SilenceUsage:  true,
+		// Activate agent mode from the flag or the env var set by Claude Code.
+		PersistentPreRunE: func(_ *cobra.Command, _ []string) error {
+			if agentSafe || os.Getenv("CLAUDE_CODE") == "1" {
+				ui.AgentMode = true
+			}
+			return nil
+		},
 	}
+
+	cmd.PersistentFlags().BoolVar(&agentSafe, "agent-safe", false,
+		"structured JSON output for AI agent callers; suppresses plaintext secrets on stdout")
 
 	cmd.AddCommand(
 		newInitCmd(),

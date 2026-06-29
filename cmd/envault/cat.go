@@ -13,12 +13,17 @@ import (
 )
 
 func newCatCmd() *cobra.Command {
-	return &cobra.Command{
+	var force bool
+
+	cmd := &cobra.Command{
 		Use:   "cat <KEY>",
 		Short: "Decrypt a single secret to stdout (debug/migration only)",
 		Long: "Decrypt a single secret and print its value to stdout.\n" +
 			"A warning is written to stderr; the value goes to stdout so it can be piped.\n" +
-			"Requires your private key to be available in the OS keychain.",
+			"Requires your private key to be available in the OS keychain.\n\n" +
+			"In agent mode (CLAUDE_CODE=1 or --agent-safe) plaintext output is suppressed\n" +
+			"to prevent secrets from appearing in the model context. Use --force to override,\n" +
+			"or prefer `envault run -- <cmd>` for in-memory injection.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kc, err := openKeychain()
@@ -29,18 +34,26 @@ func newCatCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("get working directory: %w", err)
 			}
-			return runCat(wd, args[0], kc)
+			return runCat(wd, args[0], kc, force)
 		},
 	}
+
+	cmd.Flags().BoolVar(&force, "force", false, "override agent-mode output masking (unsafe in AI contexts)")
+	return cmd
 }
 
 func newExportCmd() *cobra.Command {
-	return &cobra.Command{
+	var force bool
+
+	cmd := &cobra.Command{
 		Use:   "export",
 		Short: "Decrypt all env secrets to stdout in dotenv format (debug/migration only)",
 		Long: "Decrypt all env secrets and print them to stdout as KEY=VALUE lines.\n" +
 			"A warning is written to stderr; the values go to stdout so they can be piped.\n" +
-			"Requires your private key to be available in the OS keychain.",
+			"Requires your private key to be available in the OS keychain.\n\n" +
+			"In agent mode (CLAUDE_CODE=1 or --agent-safe) plaintext output is suppressed\n" +
+			"to prevent secrets from appearing in the model context. Use --force to override,\n" +
+			"or prefer `envault run -- <cmd>` for in-memory injection.",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			kc, err := openKeychain()
 			if err != nil {
@@ -50,12 +63,21 @@ func newExportCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("get working directory: %w", err)
 			}
-			return runExport(wd, kc)
+			return runExport(wd, kc, force)
 		},
 	}
+
+	cmd.Flags().BoolVar(&force, "force", false, "override agent-mode output masking (unsafe in AI contexts)")
+	return cmd
 }
 
-func runCat(repoRoot, name string, kc keychain.Store) error {
+func runCat(repoRoot, name string, kc keychain.Store, force bool) error {
+	if ui.AgentMode && !force {
+		return fmt.Errorf(
+			"plaintext output suppressed in agent mode — use `envault run -- <cmd>` for in-memory injection, or pass --force to override",
+		)
+	}
+
 	if !vault.IsInitialized(repoRoot) {
 		return fmt.Errorf("vault not initialized — run `envault init` first")
 	}
@@ -95,7 +117,13 @@ func runCat(repoRoot, name string, kc keychain.Store) error {
 	return err
 }
 
-func runExport(repoRoot string, kc keychain.Store) error {
+func runExport(repoRoot string, kc keychain.Store, force bool) error {
+	if ui.AgentMode && !force {
+		return fmt.Errorf(
+			"plaintext output suppressed in agent mode — use `envault run -- <cmd>` for in-memory injection, or pass --force to override",
+		)
+	}
+
 	if !vault.IsInitialized(repoRoot) {
 		return fmt.Errorf("vault not initialized — run `envault init` first")
 	}

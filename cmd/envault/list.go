@@ -11,6 +11,13 @@ import (
 	"github.com/MicheleColella/envault-cli/internal/vault"
 )
 
+// listEntry is the JSON representation of a vault entry for agent-mode output.
+type listEntry struct {
+	Name      string `json:"name"`
+	Kind      string `json:"kind"`
+	Algorithm string `json:"algorithm"`
+}
+
 func newListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
@@ -33,6 +40,19 @@ func runList(repoRoot string) error {
 	store, err := vault.LoadStore(repoRoot)
 	if err != nil {
 		return err
+	}
+
+	if ui.AgentMode {
+		entries := make([]listEntry, len(store.Entries))
+		for i, e := range store.Entries {
+			entries[i] = listEntry{
+				Name:      e.Name,
+				Kind:      string(e.Kind),
+				Algorithm: strings.ToUpper(string(e.Algorithm)),
+			}
+		}
+		ui.JSONResult(entries)
+		return nil
 	}
 
 	if len(store.Entries) == 0 {
