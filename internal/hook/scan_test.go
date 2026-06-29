@@ -356,7 +356,7 @@ func TestScanFiles_DetectsSecretInTrackedFile(t *testing.T) {
 	dir := gitInitDirWithConfig(t)
 	gitCommitEmpty(t, dir)
 
-	gitAddFile(t, dir, "secrets.go", `token := "ghp_1234567890123456789012345678901234ab"`) //nolint:gosec // G101: test fixture
+	gitAddFile(t, dir, "secrets.go", `token := "ghp_1234567890123456789012345678901234ab"`)             //nolint:gosec // G101: test fixture
 	if out, err := exec.Command("git", "-C", dir, "commit", "-m", "add").CombinedOutput(); err != nil { //nolint:gosec // test helper
 		t.Fatalf("git commit: %v\n%s", err, out)
 	}
@@ -374,7 +374,7 @@ func TestScanFiles_RespectsIgnoredFile(t *testing.T) {
 	dir := gitInitDirWithConfig(t)
 	gitCommitEmpty(t, dir)
 
-	gitAddFile(t, dir, "testdata/fixture.go", `key := "ghp_1234567890123456789012345678901234ab"`) //nolint:gosec // G101: test fixture
+	gitAddFile(t, dir, "testdata/fixture.go", `key := "ghp_1234567890123456789012345678901234ab"`)      //nolint:gosec // G101: test fixture
 	if out, err := exec.Command("git", "-C", dir, "commit", "-m", "add").CombinedOutput(); err != nil { //nolint:gosec // test helper
 		t.Fatalf("git commit: %v\n%s", err, out)
 	}
