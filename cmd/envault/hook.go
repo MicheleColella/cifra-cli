@@ -62,7 +62,7 @@ func runHookInstallGit(repoRoot string) error {
 	}
 
 	ui.OK("Git pre-commit hook installed (.git/hooks/pre-commit)")
-	ui.Info("Scans staged diff for .env files, private keys, and known API tokens")
+	ui.Info("Scans staged diff via envault scan (12+ patterns, entropy detection, .envaultignore)")
 	ui.Info("Remove with: envault hook install --git --uninstall")
 	return nil
 }

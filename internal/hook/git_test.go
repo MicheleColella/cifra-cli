@@ -238,3 +238,66 @@ func TestStripEnvaultBlock_EmptyWhenOnlyBlock(t *testing.T) {
 		t.Errorf("expected only shebang after strip, got %q", result)
 	}
 }
+
+// ---- upgrade (v1 → v2) ----
+
+func TestInstallGitHook_UpgradesV1Block(t *testing.T) {
+	dir := gitInitDir(t)
+
+	// Simulate a v1 block (no version marker) already installed.
+	v1Block := hookBeginMarker + "\n# Envault: old v1 script\n" + hookEndMarker + "\n"
+	v1Content := "#!/bin/sh\n" + v1Block
+	if err := os.MkdirAll(filepath.Join(dir, ".git", "hooks"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(hookPath(dir), []byte(v1Content), 0o755); err != nil { //nolint:gosec
+		t.Fatal(err)
+	}
+
+	if err := InstallGitHook(dir); err != nil {
+		t.Fatalf("InstallGitHook upgrade: %v", err)
+	}
+
+	content, _ := os.ReadFile(hookPath(dir))
+	s := string(content)
+
+	if !strings.Contains(s, hookVersionMarker) {
+		t.Error("upgraded hook should contain version marker")
+	}
+	if strings.Contains(s, "old v1 script") {
+		t.Error("v1 script body should have been replaced")
+	}
+	// Only one envault block should be present.
+	if strings.Count(s, hookBeginMarker) != 1 {
+		t.Errorf("expected 1 begin marker after upgrade, got %d", strings.Count(s, hookBeginMarker))
+	}
+}
+
+func TestInstallGitHook_IdempotentV2(t *testing.T) {
+	dir := gitInitDir(t)
+
+	if err := InstallGitHook(dir); err != nil {
+		t.Fatalf("first install: %v", err)
+	}
+	content1, _ := os.ReadFile(hookPath(dir))
+
+	if err := InstallGitHook(dir); err != nil {
+		t.Fatalf("second install: %v", err)
+	}
+	content2, _ := os.ReadFile(hookPath(dir))
+
+	if string(content1) != string(content2) {
+		t.Error("second install of v2 hook modified the file (not idempotent)")
+	}
+}
+
+func TestInstallGitHook_NewHookContainsVersionMarker(t *testing.T) {
+	dir := gitInitDir(t)
+	if err := InstallGitHook(dir); err != nil {
+		t.Fatalf("InstallGitHook: %v", err)
+	}
+	content, _ := os.ReadFile(hookPath(dir))
+	if !strings.Contains(string(content), hookVersionMarker) {
+		t.Error("new hook missing version marker")
+	}
+}

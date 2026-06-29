@@ -15,7 +15,7 @@ func TestRootVersion(t *testing.T) {
 
 func TestRootCommandsRegistered(t *testing.T) {
 	cmd := newRootCmd("dev")
-	want := []string{"init", "key", "import", "add", "data", "set", "rm", "list", "cat", "export", "push", "pull", "rotate", "run", "exec", "hook"}
+	want := []string{"init", "key", "import", "add", "data", "set", "rm", "list", "cat", "export", "push", "pull", "rotate", "run", "exec", "hook", "scan"}
 
 	registered := make(map[string]bool)
 	for _, c := range cmd.Commands() {

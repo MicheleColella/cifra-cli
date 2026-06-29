@@ -16,14 +16,31 @@ import (
 const (
 	hookBeginMarker = "# --- BEGIN envault pre-commit hook ---"
 	hookEndMarker   = "# --- END envault pre-commit hook ---"
+
+	// hookVersionMarker is embedded in the script body so InstallGitHook can
+	// detect and auto-upgrade outdated v1 blocks on reinstall.
+	hookVersionMarker = "# envault-hook-version: 2"
 )
 
 // hookScriptBody is the POSIX-sh script that runs inside the envault block.
-// It scans the staged diff for three high-confidence secret patterns and blocks
-// the commit with an actionable message if any are found.
+// It delegates to `envault scan --staged` when the binary is on PATH and falls
+// back to minimal inline checks when it is not (e.g. fresh clone before install).
 const hookScriptBody = `# Envault: block commits that may contain plaintext secrets.
+# envault-hook-version: 2
 # Remove with: envault hook install --git --uninstall
 
+# Only run inside an envault-managed repo.
+if [ ! -d ".envault" ]; then
+  exit 0
+fi
+
+# Prefer the Go scanner: entropy + 12+ patterns + .envaultignore support.
+if command -v envault >/dev/null 2>&1; then
+  envault scan --staged
+  exit $?
+fi
+
+# Fallback: envault not on PATH — minimal inline checks.
 _envault_fail() {
   printf '\033[0;31menvault:\033[0m %s\n' "$1" >&2
   printf '  Seal it with: envault add <KEY>\n' >&2
@@ -31,26 +48,15 @@ _envault_fail() {
   exit 1
 }
 
-# Only run inside an envault-managed repo.
-if [ ! -d ".envault" ]; then
-  exit 0
-fi
-
 _staged=$(git diff --cached --name-only 2>/dev/null)
 _diff_adds=$(git diff --cached -U0 2>/dev/null | grep '^+' | grep -v '^+++' || true)
 
-# 1. .env files staged for commit.
-_env_files=$(printf '%s\n' "$_staged" | grep -E '(^|/)\.env(\.[a-zA-Z0-9]+)?$' || true)
-if [ -n "$_env_files" ]; then
+if printf '%s\n' "$_staged" | grep -qE '(^|/)\.env(\.[a-zA-Z0-9]+)?$'; then
   _envault_fail ".env file staged for commit — use envault to store secrets instead"
 fi
-
-# 2. PEM private key material in the diff.
 if printf '%s\n' "$_diff_adds" | grep -qE '-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY'; then
   _envault_fail "private key material detected in staged diff"
 fi
-
-# 3. High-confidence API token patterns (GitHub, AWS IAM, OpenAI).
 if printf '%s\n' "$_diff_adds" | grep -qE '(ghp_[A-Za-z0-9]{36}|ghs_[A-Za-z0-9]{36}|AKIA[A-Z0-9]{16}|sk-[A-Za-z0-9_-]{32,})'; then
   _envault_fail "known API token pattern detected in staged diff"
 fi`
@@ -87,7 +93,11 @@ func InstallGitHook(repoRoot string) error {
 	content := string(existing)
 
 	if strings.Contains(content, hookBeginMarker) {
-		return nil // already installed
+		if strings.Contains(content, hookVersionMarker) {
+			return nil // already at current version, no-op
+		}
+		// Outdated v1 block found — replace it with the current version.
+		content = stripEnvaultBlock(content)
 	}
 
 	var newContent string

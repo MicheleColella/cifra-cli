@@ -43,6 +43,7 @@ func newRootCmd(ver string) *cobra.Command {
 		newRunCmd(),
 		newExecCmd(),
 		newHookCmd(),
+		newScanCmd(),
 	)
 
 	return cmd
