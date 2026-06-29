@@ -85,14 +85,14 @@ func runScan(repoRoot string, staged, all bool, minSeverityStr string) error {
 			ui.Warn(fmt.Sprintf("[%s] %s — %s", m.Severity, loc, m.Description))
 		}
 		if m.Snippet != "" && m.Snippet != m.File {
-			fmt.Fprintf(ui.Err, "  %s\n", m.Snippet)
+			fmt.Fprintf(ui.Err, "  %s\n", m.Snippet) //nolint:errcheck
 		}
 	}
 
 	if blockingCount > 0 {
-		fmt.Fprintln(ui.Err)
-		fmt.Fprintln(ui.Err, "Seal secrets with: envault add <KEY>")
-		fmt.Fprintln(ui.Err, "To bypass (not recommended): git commit --no-verify")
+		fmt.Fprintln(ui.Err)                                                          //nolint:errcheck
+		fmt.Fprintln(ui.Err, "Seal secrets with: envault add <KEY>")                  //nolint:errcheck
+		fmt.Fprintln(ui.Err, "To bypass (not recommended): git commit --no-verify")  //nolint:errcheck
 		return fmt.Errorf("%d blocking secret(s) detected", blockingCount)
 	}
 

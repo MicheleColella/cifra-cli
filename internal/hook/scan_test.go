@@ -21,7 +21,7 @@ func gitAddFile(t *testing.T, dir, relPath, content string) {
 	if err := os.WriteFile(full, []byte(content), 0o600); err != nil {
 		t.Fatalf("write %s: %v", relPath, err)
 	}
-	if out, err := exec.Command("git", "-C", dir, "add", relPath).CombinedOutput(); err != nil {
+	if out, err := exec.Command("git", "-C", dir, "add", relPath).CombinedOutput(); err != nil { //nolint:gosec // test helper
 		t.Fatalf("git add %s: %v\n%s", relPath, err, out)
 	}
 }
@@ -32,7 +32,7 @@ func gitInitDirWithConfig(t *testing.T) string {
 	dir := t.TempDir()
 	run := func(args ...string) {
 		t.Helper()
-		if out, err := exec.Command(args[0], args[1:]...).CombinedOutput(); err != nil {
+		if out, err := exec.Command(args[0], args[1:]...).CombinedOutput(); err != nil { //nolint:gosec // test helper
 			t.Fatalf("%v: %v\n%s", args, err, out)
 		}
 	}
@@ -42,23 +42,13 @@ func gitInitDirWithConfig(t *testing.T) string {
 	return dir
 }
 
-// gitCommit creates an initial empty commit so git ls-files works.
+// gitCommitEmpty creates an initial empty commit so git ls-files works.
 func gitCommitEmpty(t *testing.T, dir string) {
 	t.Helper()
-	out, err := exec.Command("git", "-C", dir, "commit", "--allow-empty", "-m", "init").CombinedOutput()
+	out, err := exec.Command("git", "-C", dir, "commit", "--allow-empty", "-m", "init").CombinedOutput() //nolint:gosec // test helper
 	if err != nil {
 		t.Fatalf("git commit: %v\n%s", err, out)
 	}
-}
-
-// stagedDiffOf returns the staged diff for dir.
-func stagedDiffOf(t *testing.T, dir string) string {
-	t.Helper()
-	out, err := exec.Command("git", "-C", dir, "diff", "--cached", "-U0").Output()
-	if err != nil {
-		t.Fatalf("git diff: %v", err)
-	}
-	return string(out)
 }
 
 // ---- DefaultRules -----------------------------------------------------------
@@ -197,7 +187,7 @@ func TestScanDiff_EmptyDiff(t *testing.T) {
 }
 
 func TestScanDiff_DetectsGitHubPAT(t *testing.T) {
-	diff := buildDiff("config.go", `GITHUB_TOKEN=ghp_1234567890123456789012345678901234ab`)
+	diff := buildDiff("config.go", `GITHUB_TOKEN=ghp_1234567890123456789012345678901234ab`) //nolint:gosec // G101: test fixture
 	matches := ScanDiff(diff, DefaultRules(), nil)
 	found := findByRuleID(matches, "github-pat")
 	if found == nil {
@@ -286,8 +276,8 @@ func TestScanDiff_SkipsDeletedLines(t *testing.T) {
 }
 
 func TestScanDiff_LineNumbersAreAccurate(t *testing.T) {
-	// Token on the 3rd added line.
-	content := "package main\n\nconst tok = \"ghp_1234567890123456789012345678901234ab\""
+	// Token on the 3rd added line. Value is a synthetic test token, not a real credential.
+	content := "package main\n\nconst tok = \"ghp_1234567890123456789012345678901234ab\"" //nolint:gosec // G101: test fixture
 	diff := buildDiff("main.go", content)
 	matches := ScanDiff(diff, DefaultRules(), nil)
 	m := findByRuleID(matches, "github-pat")
@@ -366,8 +356,8 @@ func TestScanFiles_DetectsSecretInTrackedFile(t *testing.T) {
 	dir := gitInitDirWithConfig(t)
 	gitCommitEmpty(t, dir)
 
-	gitAddFile(t, dir, "secrets.go", `token := "ghp_1234567890123456789012345678901234ab"`)
-	if out, err := exec.Command("git", "-C", dir, "commit", "-m", "add").CombinedOutput(); err != nil {
+	gitAddFile(t, dir, "secrets.go", `token := "ghp_1234567890123456789012345678901234ab"`) //nolint:gosec // G101: test fixture
+	if out, err := exec.Command("git", "-C", dir, "commit", "-m", "add").CombinedOutput(); err != nil { //nolint:gosec // test helper
 		t.Fatalf("git commit: %v\n%s", err, out)
 	}
 
@@ -384,8 +374,8 @@ func TestScanFiles_RespectsIgnoredFile(t *testing.T) {
 	dir := gitInitDirWithConfig(t)
 	gitCommitEmpty(t, dir)
 
-	gitAddFile(t, dir, "testdata/fixture.go", `key := "ghp_1234567890123456789012345678901234ab"`)
-	if out, err := exec.Command("git", "-C", dir, "commit", "-m", "add").CombinedOutput(); err != nil {
+	gitAddFile(t, dir, "testdata/fixture.go", `key := "ghp_1234567890123456789012345678901234ab"`) //nolint:gosec // G101: test fixture
+	if out, err := exec.Command("git", "-C", dir, "commit", "-m", "add").CombinedOutput(); err != nil { //nolint:gosec // test helper
 		t.Fatalf("git commit: %v\n%s", err, out)
 	}
 
@@ -405,7 +395,7 @@ func TestScanFiles_NoMatchesForCleanRepo(t *testing.T) {
 	gitAddFile(t, dir, "main.go", `package main
 
 func main() {}`)
-	if out, err := exec.Command("git", "-C", dir, "commit", "-m", "add").CombinedOutput(); err != nil {
+	if out, err := exec.Command("git", "-C", dir, "commit", "-m", "add").CombinedOutput(); err != nil { //nolint:gosec // test helper
 		t.Fatalf("git commit: %v\n%s", err, out)
 	}
 

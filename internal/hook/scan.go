@@ -298,7 +298,7 @@ func ScanFiles(repoRoot string, rules []Rule, ignoredFiles []string) ([]Match, e
 			lineNum++
 			matches = append(matches, scanLine(relPath, lineNum, lsc.Text(), rules)...)
 		}
-		f.Close()
+		_ = f.Close()
 	}
 	return matches, nil
 }
@@ -314,7 +314,7 @@ func LoadIgnorePatterns(repoRoot string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var patterns []string
 	sc := bufio.NewScanner(f)
