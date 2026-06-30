@@ -39,7 +39,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go: ['1.24', '1.25']
+        go: ['1.25']  # go.mod requires >= 1.25.0; older toolchains can't build (GOTOOLCHAIN=local)
         os: [ubuntu-latest, macos-14]
     steps:
       - uses: actions/checkout@v7
