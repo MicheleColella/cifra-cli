@@ -32,7 +32,14 @@ func newAgentCheckCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("get working directory: %w", err)
 			}
-			return runAgentCheck(wd)
+			if err := runAgentCheck(wd); err != nil {
+				if ui.AgentMode {
+					// JSON result already written; skip the second ui.Fail from Execute.
+					os.Exit(1)
+				}
+				return err
+			}
+			return nil
 		},
 	}
 }
@@ -49,7 +56,7 @@ func runAgentCheck(repoRoot string) error {
 	if ui.AgentMode {
 		ui.JSONResult(res)
 		if !res.Ready {
-			os.Exit(1)
+			return fmt.Errorf("agent environment not fully configured")
 		}
 		return nil
 	}
