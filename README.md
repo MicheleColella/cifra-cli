@@ -103,8 +103,16 @@ envault run -- npm start
 | `envault pull` | Fetch and merge the vault; report changes | ✅ |
 | `envault run [--only/--except] -- <cmd>` | Inject secrets in memory and run a command (0 bytes to disk) | ✅ |
 | `envault exec` | Open `$SHELL` with all env secrets injected | ✅ |
+| `envault scan [--staged/--all]` | Scan for secrets (pattern rules + entropy heuristic) | ✅ |
 | `envault hook install --git` | Install a pre-commit hook that blocks secret leaks (`--uninstall` to remove) | ✅ |
-| `envault hook install --claude` | Claude Code / AI-agent integration | 🚧 v0.8.0 |
+| `envault hook install --claude` | Install the Claude Code / AI-agent integration (Privacy Shield) | ✅ |
+| `envault protect add <path>` | Mark a path/glob off-limits to AI agents (blocked by the Claude hook) | ✅ |
+| `envault audit log show/verify` | Show or verify the tamper-evident AI access log | ✅ |
+| `envault status` | Structured health check of the vault, hooks, and shield | ✅ |
+| `envault agent-check` | Verify the AI-agent environment is ready (exit 1 if not) | ✅ |
+
+> Add `--agent-safe` (alias `--json`) to any command for structured JSON output;
+> in this mode `cat`/`export` refuse to print plaintext unless you pass `--force`.
 
 ---
 
@@ -119,6 +127,7 @@ Envault is designed so that you do not have to trust anyone except your Git remo
 - **No disk writes** — secrets are decrypted in memory and injected directly into the child process. Nothing is written to a temp file.
 - **Per-recipient access control** — adding or removing a teammate from the vault controls who can decrypt. `rotate` re-seals a secret with a fresh data key for the current recipients, truly revoking a removed member.
 - **Leak prevention** — an optional Git pre-commit hook (`envault hook install --git`) scans the staged diff for `.env` files, private keys, and known API tokens, blocking the commit before a secret ships.
+- **AI Privacy Shield** — an optional Claude Code hook (`envault hook install --claude`) blocks AI agents from reading protected paths or running `envault cat`/`export`, masks any vault secret that appears in tool output, and records every access in a tamper-evident audit log.
 - **Integrity guaranteed** — ciphertext is authenticated; any tampering is detected and rejected before decryption.
 
 ---
