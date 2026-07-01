@@ -52,6 +52,20 @@ jobs:
       - name: go test
         run: go test ./...
 
+  e2e:
+    name: E2E (Forgejo container, Linux only)
+    runs-on: ubuntu-latest  # macOS runners have no Docker daemon — E2E is Linux-only
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: go test -tags=e2e
+        run: go test -tags=e2e -timeout 15m ./cmd/envault/...
+
   build:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
