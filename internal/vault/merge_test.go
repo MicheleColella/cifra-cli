@@ -104,11 +104,9 @@ func TestMergeStores_OnlyOursModified(t *testing.T) {
 	if len(conflicts) != 0 {
 		t.Fatalf("unexpected conflicts: %v", conflicts)
 	}
-	e := findEntryIn(merged, "DB")
-	if e == nil {
+	if e := findEntryIn(merged, "DB"); e == nil {
 		t.Fatal("merged missing 'DB'")
-	}
-	if !e.UpdatedAt.Equal(modified.UpdatedAt) {
+	} else if !e.UpdatedAt.Equal(modified.UpdatedAt) {
 		t.Errorf("UpdatedAt = %v, want %v (ours modified)", e.UpdatedAt, modified.UpdatedAt)
 	}
 }
@@ -125,8 +123,9 @@ func TestMergeStores_OnlyTheirsModified(t *testing.T) {
 	if len(conflicts) != 0 {
 		t.Fatalf("unexpected conflicts: %v", conflicts)
 	}
-	e := findEntryIn(merged, "API")
-	if !e.UpdatedAt.Equal(modified.UpdatedAt) {
+	if e := findEntryIn(merged, "API"); e == nil {
+		t.Fatal("merged missing 'API'")
+	} else if !e.UpdatedAt.Equal(modified.UpdatedAt) {
 		t.Errorf("UpdatedAt = %v, want %v (theirs modified)", e.UpdatedAt, modified.UpdatedAt)
 	}
 }
