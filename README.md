@@ -53,12 +53,134 @@ Windows binaries are not yet published (pending a Windows keychain backend).
 
 ---
 
+## Quick start
+
+The full path from a fresh machine to using Envault both from your terminal
+and from Claude Code, without ever retyping a passphrase inside Claude Code.
+Run these in order.
+
+### 1. Install the binary
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/MicheleColella/envault-cli/main/scripts/install.sh | sh
+```
+
+Downloads the latest signed release for your platform, verifies its
+checksum, and puts `envault` on your `PATH`. See [Install](#install) below
+for alternatives (`go install`, building from source).
+
+```sh
+envault doctor
+```
+
+Sanity check: confirms the binary is found and the OS keychain backend
+works. Recipients/secrets will show 0 until you initialise a vault — that's
+expected at this point.
+
+### 2. Initialise a vault in your project
+
+```sh
+cd your-project
+envault init
+```
+
+Creates `.envault/` at the repo root (`config`, `recipients`,
+`secrets.enc` — all encrypted; safe, and meant, to be committed to Git).
+
+### 3. Generate your identity key
+
+```sh
+envault key new --id you@example.com
+```
+
+Generates an X25519 keypair. The private key is sealed in your OS keychain,
+itself encrypted at rest under a passphrase **you choose right now** —
+remember it (a password manager, not a sticky note). The public key is added
+to `.envault/recipients` so the vault can encrypt secrets for you.
+
+### 4. Add a secret
+
+```sh
+echo "sk-abc123" | envault add OPENAI_KEY
+```
+
+Encrypts the value with a fresh AES-256-GCM data key, wrapped to every
+current recipient's public key. The plaintext never touches disk — only
+ciphertext goes into `.envault/secrets.enc`.
+
+### 5. Push the encrypted vault to your Git remote
+
+```sh
+envault push
+```
+
+Stages `.envault/`, commits, and pushes — only ciphertext ever leaves your
+machine. A teammate does steps 1–3 with their own identity, you
+`envault key import` their public key (or they `key export` it to you),
+then they run `envault pull` to get access.
+
+### 6. Install the Claude Code plugin
+
+Type these as **Claude Code slash commands** (not shell commands), in a
+Claude Code session opened in your project:
+
+```
+/plugin marketplace add MicheleColella/envault-cli
+/plugin install envault@envault
+```
+
+This enables, for this project only:
+- The **AI Privacy Shield** hooks — block `envault cat`/`export`/`add`/`set`
+  in Bash, and mask any secret value that leaks into tool output.
+- An embedded **MCP server** — Claude calls typed tools (`envault_status`,
+  `envault_run`, …) instead of constructing bash commands, so there's no
+  shell string to parse and no shell-injection surface.
+- A **skill** that teaches Claude the vault workflow and its rules.
+
+Enabling the plugin is reversible (`/plugin uninstall envault`) and scoped
+per-project via `.claude/settings.json` (`enabledPlugins`) — never global by
+default. It calls the `envault` binary already on your `PATH`; no separate
+binary to install. See [Claude Code plugin](#claude-code-plugin) below for
+the full component breakdown.
+
+### 7. Unlock the key-unlock agent — once, then Claude Code needs no passphrase
+
+```sh
+envault agent unlock
+```
+
+Prompts for the passphrase you chose in step 3 (interactively, like any
+other envault command), then hands the decrypted key to a small background
+agent (ssh-agent-style, listening on `~/.envault/agent.sock`) that keeps it
+cached in memory for 8 hours by default (`--ttl` to change). This agent is
+**machine-wide**, not tied to this terminal or this project: it keeps
+running after you close the terminal, and any Claude Code session opened
+afterward — even from a different terminal, even for a different project
+where you're also a recipient — finds it automatically.
+
+From now on, until the TTL expires: `envault run`/`rotate`/`protect encrypt`,
+`push`/`pull` rewrap, Claude Code's MCP server, and its secret-masking hook
+all work with **no** passphrase prompt and no `ENVAULT_PASSPHRASE` needed.
+Check what's unlocked with `envault agent status`; clear it early with
+`envault agent lock` (or `agent stop` to also kill the background process).
+
+### 8. Use it
+
+```sh
+envault run -- npm start
+```
+
+or, inside Claude Code, just ask it to do something with your secrets — e.g.
+*"run the tests with the vault secrets injected"* — Claude calls the MCP
+tools directly, no passphrase involved.
+
+---
+
 ## Claude Code plugin
 
-Envault ships as a [Claude Code](https://claude.com/claude-code) plugin: the AI
-Privacy Shield hooks, an embedded MCP server, the `/envault:*` slash commands,
-and a skill that teaches Claude the vault workflow, all enabled per-project
-(never globally by default).
+Envault ships as a [Claude Code](https://claude.com/claude-code) plugin — see
+step 6 above for the install commands. This section is the deeper reference
+for what it actually does.
 
 The MCP server (`envault mcp serve`) exposes typed, JSON-Schema-validated
 tools (`envault_status`, `envault_list`, `envault_rotate`, `envault_run`,
@@ -73,19 +195,11 @@ the plaintext would have to pass through the model's context first.
 
 Since the MCP server is headless, operations needing your private key
 (`rotate`, `run`, `protect encrypt`, `push`/`pull`) normally need
-`ENVAULT_PASSPHRASE` set. Run `envault agent unlock` once from your own
-terminal instead: it prompts for the passphrase interactively, then a small
-background agent (`~/.envault/agent.sock`, ssh-agent-style) keeps the
-decrypted key cached in memory for a bounded time (default 8h) — no
-passphrase needed for the rest of that window, even in a Claude Code session
-opened later from a different terminal. This is opt-in and widens the
-key's exposure window in exchange for convenience; `envault status`/`doctor`
-always show whether it's active.
-
-```text
-/plugin marketplace add MicheleColella/envault-cli
-/plugin install envault@envault
-```
+`ENVAULT_PASSPHRASE` set — or, as in step 7 above, `envault agent unlock`
+once from your own terminal so a small background agent
+(`~/.envault/agent.sock`, ssh-agent-style) supplies the key instead. This is
+opt-in and widens the key's exposure window in exchange for convenience;
+`envault status`/`doctor` always show whether it's active.
 
 `envault@envault` is `<plugin>@<marketplace>` — both are named `envault` in
 [`marketplace.json`](.claude-plugin/marketplace.json).
@@ -98,33 +212,6 @@ installs above are still the way to use Envault from a plain terminal.
 **not** bundle platform-specific binaries. Install the binary once via any method
 above, then enable the plugin. Run `envault doctor` if the hooks report the binary
 is missing.
-
----
-
-## Quick start
-
-```sh
-# 1. Initialise a vault in your repo
-envault init
-
-# 2. Generate your identity key (sealed in your OS keychain, encrypted at rest
-#    under a passphrase you choose — the key never leaves your machine)
-envault key new --id you@example.com
-
-# 3. Add a secret
-echo "sk-abc123" | envault add OPENAI_KEY
-
-# 4. Push the encrypted vault to your remote
-envault push
-
-# 5. A teammate pulls and runs their app with secrets injected in memory
-envault pull
-envault run -- npm start
-```
-
-> Reading a key (e.g. `run`, `cat`, `export`) asks for the passphrase that protects
-> it. For non-interactive/CI use, supply it via the `ENVAULT_PASSPHRASE` environment
-> variable (less secure — visible to same-user processes).
 
 ---
 
