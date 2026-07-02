@@ -1,7 +1,6 @@
 package hook
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"os"
@@ -104,12 +103,13 @@ func InstallGitHook(repoRoot string) error {
 	if content == "" {
 		newContent = "#!/bin/sh\n" + envaultBlock
 	} else {
-		// Ensure exactly one blank line before the envault block.
-		sep := ""
-		if !strings.HasSuffix(content, "\n") {
-			sep = "\n"
-		}
-		newContent = content + sep + "\n" + envaultBlock
+		// Exactly one "\n" separates existing content from the block, whether
+		// or not content already ended in a newline — stripEnvaultBlock
+		// reverses this unconditionally, which is what makes an
+		// install+uninstall cycle restore the original byte-for-byte in every
+		// case (already-terminated, not terminated, CRLF, or already ending
+		// in a blank line).
+		newContent = content + "\n" + envaultBlock
 	}
 
 	if err := os.WriteFile(hookPath, []byte(newContent), 0o755); err != nil { //nolint:gosec // hook scripts must be executable
@@ -177,36 +177,37 @@ func resolveHooksDir(repoRoot string) (string, error) {
 }
 
 // stripEnvaultBlock removes the envault-managed block (BEGIN marker through END
-// marker, inclusive) from content. The blank separator line immediately before
-// the BEGIN marker is also removed so the original surrounding content is restored
-// exactly. Returns the modified content; the original is never mutated.
+// marker, inclusive) from content, plus the single "\n" separator
+// InstallGitHook always adds immediately before it (see InstallGitHook — it
+// adds exactly one "\n" whether or not content already ended in a newline,
+// specifically so this strip is unconditional and exact). It operates on raw
+// byte offsets rather than re-tokenizing and rejoining lines, so everything
+// outside the deleted range — including CRLF line endings and the file's own
+// trailing-newline state — is preserved byte-for-byte. Returns the modified
+// content; the original is never mutated.
 func stripEnvaultBlock(content string) string {
-	scanner := bufio.NewScanner(strings.NewReader(content))
-	var lines []string
-	inBlock := false
-
-	for scanner.Scan() {
-		line := scanner.Text()
-		switch {
-		case line == hookBeginMarker:
-			inBlock = true
-			// Remove the blank separator line that precedes the block.
-			if len(lines) > 0 && lines[len(lines)-1] == "" {
-				lines = lines[:len(lines)-1]
-			}
-		case line == hookEndMarker:
-			inBlock = false
-		case !inBlock:
-			lines = append(lines, line)
-		}
+	beginIdx := strings.Index(content, hookBeginMarker)
+	if beginIdx == -1 {
+		return content
+	}
+	endIdx := strings.Index(content, hookEndMarker)
+	if endIdx == -1 || endIdx < beginIdx {
+		return content
 	}
 
-	if len(lines) == 0 {
-		return ""
+	lineStart := 0
+	if nl := strings.LastIndexByte(content[:beginIdx], '\n'); nl != -1 {
+		lineStart = nl + 1
 	}
-	result := strings.Join(lines, "\n")
-	if !strings.HasSuffix(result, "\n") {
-		result += "\n"
+
+	lineEnd := endIdx + len(hookEndMarker)
+	if nl := strings.IndexByte(content[lineEnd:], '\n'); nl != -1 {
+		lineEnd += nl + 1
+	} else {
+		lineEnd = len(content)
 	}
-	return result
+
+	before := strings.TrimSuffix(content[:lineStart], "\n")
+	after := content[lineEnd:]
+	return before + after
 }

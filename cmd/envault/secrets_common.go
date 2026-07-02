@@ -7,6 +7,7 @@ import (
 
 	envcrypto "github.com/MicheleColella/envault-cli/internal/crypto"
 	"github.com/MicheleColella/envault-cli/internal/keychain"
+	"github.com/MicheleColella/envault-cli/internal/secmem"
 	"github.com/MicheleColella/envault-cli/internal/vault"
 )
 
@@ -51,6 +52,11 @@ func loadCurrentUserKey(repoRoot string, kc keychain.Store) (envcrypto.PrivateKe
 		if err != nil {
 			return envcrypto.PrivateKey{}, "", fmt.Errorf("unseal key for %s: %w", r.ID, err)
 		}
+		// privBytes is the longest-lived heap buffer holding raw key material
+		// here — priv below is a [32]byte value that gets copied out on return,
+		// so locking it would protect a buffer about to be discarded anyway.
+		secmem.Lock(privBytes)
+		defer secmem.Unlock(privBytes)
 		defer clear(privBytes) // zero the heap allocation returned by kc.Unseal
 		var priv envcrypto.PrivateKey
 		copy(priv[:], privBytes)

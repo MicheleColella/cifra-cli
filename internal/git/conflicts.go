@@ -42,7 +42,9 @@ func ConflictStage(repoRoot string, stage int, path string) ([]byte, error) {
 		// All other errors (missing git binary, corrupt object DB, wrong dir) are propagated.
 		msg := stderr.String()
 		if strings.Contains(msg, "does not exist in the index") ||
-			strings.Contains(msg, "exists on disk, but not in") {
+			strings.Contains(msg, "exists on disk, but not in") ||
+			strings.Contains(msg, "does not exist (neither on disk nor in the index)") ||
+			strings.Contains(msg, "is in the index, but not at stage") {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("git show %s: %w: %s", ref, err, strings.TrimSpace(msg))

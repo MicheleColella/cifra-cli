@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -94,6 +95,58 @@ func TestLoadStore_MissingReturnsEmpty(t *testing.T) {
 	}
 	if len(s.Entries) != 0 {
 		t.Errorf("expected empty store, got %d entries", len(s.Entries))
+	}
+}
+
+// TestSaveStore_CrashBeforeRenameLeavesVaultIntact simulates a power loss that
+// happens after the temp file is written and fsynced, but before the rename
+// that publishes it. Since SaveStore never writes secrets.enc directly, the
+// previous store must still load correctly, and an interrupted temp file next
+// to it must never confuse LoadStore.
+func TestSaveStore_CrashBeforeRenameLeavesVaultIntact(t *testing.T) {
+	root := t.TempDir()
+	if _, err := Init(root, "", false); err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	original := (&Store{}).Upsert(sealTestEntry(t, "ORIGINAL", KindEnv, "before-crash"))
+	if err := SaveStore(root, original); err != nil {
+		t.Fatalf("SaveStore(original): %v", err)
+	}
+
+	// Replicate SaveStore's write+fsync step directly against the same tmpPath
+	// convention, without ever calling the rename that publishes it — this is
+	// the state a crash right before rename would leave on disk.
+	path := filepath.Join(root, DirName, secretsFile)
+	tmpPath := path + ".tmp"
+	pending := (&Store{}).Upsert(sealTestEntry(t, "NEVER_PUBLISHED", KindEnv, "in-flight"))
+	data, err := json.MarshalIndent(pending, "", "  ")
+	if err != nil {
+		t.Fatalf("MarshalIndent: %v", err)
+	}
+	f, err := os.OpenFile(tmpPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		t.Fatalf("OpenFile: %v", err)
+	}
+	if _, err := f.Write(data); err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if err := f.Sync(); err != nil {
+		t.Fatalf("Sync: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	loaded, err := LoadStore(root)
+	if err != nil {
+		t.Fatalf("LoadStore after simulated crash: %v", err)
+	}
+	if len(loaded.Entries) != 1 || loaded.Entries[0].Name != "ORIGINAL" {
+		t.Fatalf("vault corrupted by unpublished temp file: got %+v", loaded.Entries)
+	}
+	if _, err := os.Stat(tmpPath); err != nil {
+		t.Fatalf("expected leftover temp file to still exist on disk: %v", err)
 	}
 }
 

@@ -486,3 +486,65 @@ func TestRunKeyImport_InvalidHex(t *testing.T) {
 		t.Fatal("expected error for invalid hex")
 	}
 }
+
+// ---- key reseal ----
+
+func TestRunKeyReseal_LegacyKeyBecomesRecoverableWithNewPassphrase(t *testing.T) {
+	kc := newMemStore()
+	priv, _, err := envcrypto.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair: %v", err)
+	}
+	if err := kc.Seal("alice@example.com", priv[:]); err != nil { // raw legacy write
+		t.Fatalf("seed Seal: %v", err)
+	}
+
+	ui.Out = &bytes.Buffer{}
+	t.Cleanup(func() { ui.Out = os.Stdout })
+	t.Setenv("ENVAULT_PASSPHRASE", "new-passphrase")
+
+	if err := runKeyReseal("alice@example.com", kc); err != nil {
+		t.Fatalf("runKeyReseal: %v", err)
+	}
+
+	protected := keychain.NewProtected(kc, askPassphrase)
+	got, err := protected.Unseal("alice@example.com")
+	if err != nil {
+		t.Fatalf("Unseal after reseal: %v", err)
+	}
+	if !bytes.Equal(got, priv[:]) {
+		t.Fatalf("resealed key mismatch")
+	}
+}
+
+func TestRunKeyReseal_PrintsExpectedOutput(t *testing.T) {
+	kc := newMemStore()
+	priv, _, err := envcrypto.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("GenerateKeyPair: %v", err)
+	}
+	if err := kc.Seal("bob@example.com", priv[:]); err != nil {
+		t.Fatalf("seed Seal: %v", err)
+	}
+
+	var out bytes.Buffer
+	ui.Out = &out
+	t.Cleanup(func() { ui.Out = os.Stdout })
+	t.Setenv("ENVAULT_PASSPHRASE", "pw")
+
+	if err := runKeyReseal("bob@example.com", kc); err != nil {
+		t.Fatalf("runKeyReseal: %v", err)
+	}
+	if !strings.Contains(out.String(), "bob@example.com") {
+		t.Errorf("expected output to mention the id, got %q", out.String())
+	}
+}
+
+func TestRunKeyReseal_MissingKeyErrors(t *testing.T) {
+	kc := newMemStore()
+	t.Setenv("ENVAULT_PASSPHRASE", "pw")
+
+	if err := runKeyReseal("nobody@example.com", kc); err == nil {
+		t.Fatal("expected error resealing a nonexistent id")
+	}
+}

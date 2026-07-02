@@ -187,3 +187,38 @@ func TestRunHookPostuse_MasksViaAgent_NoPassphraseNeeded(t *testing.T) {
 		t.Errorf("expected placeholder in masked output, got: %s", w.String())
 	}
 }
+
+// ---- findMaskingKey ----
+
+func TestFindMaskingKey_NoAgentNoPassphrase(t *testing.T) {
+	withTestAgentSocket(t) // ensures ENVAULT_PASSPHRASE is unset; no agent listening
+
+	_, ok := findMaskingKey([]vault.Recipient{{ID: "nobody@example.com"}})
+	if ok {
+		t.Fatal("expected false with no agent running and no ENVAULT_PASSPHRASE")
+	}
+}
+
+func TestFindMaskingKey_PassphraseSetButKeychainUnavailable(t *testing.T) {
+	withTestAgentSocket(t)
+	t.Setenv("ENVAULT_PASSPHRASE", "irrelevant")
+	t.Setenv("PATH", t.TempDir()) // no OS keychain backend reachable
+
+	_, ok := findMaskingKey([]vault.Recipient{{ID: "nobody@example.com"}})
+	if ok {
+		t.Fatal("expected false when the keychain backend is unavailable")
+	}
+}
+
+func TestFindMaskingKey_PassphraseSetNoMatchingRecipient(t *testing.T) {
+	withTestAgentSocket(t)
+	t.Setenv("ENVAULT_PASSPHRASE", "some-passphrase")
+
+	// PATH is left as-is: on darwin this reaches the real `security` CLI,
+	// which simply won't have this id — a legitimate ErrNotFound path,
+	// exercised without touching any real key material.
+	_, ok := findMaskingKey([]vault.Recipient{{ID: "definitely-not-a-real-recipient-id"}})
+	if ok {
+		t.Fatal("expected false for a recipient id with no matching keychain entry")
+	}
+}

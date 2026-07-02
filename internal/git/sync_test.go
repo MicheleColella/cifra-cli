@@ -207,3 +207,128 @@ func TestHeadHash(t *testing.T) {
 		t.Errorf("expected a non-trivial commit hash, got %q", hash)
 	}
 }
+
+func TestIsVaultTracked_TrueAfterCommitAndPush(t *testing.T) {
+	bare := initBareRepo(t)
+	seedRemote(t, bare)
+	repo := cloneRepo(t, bare)
+
+	writeVaultFile(t, repo, "config", "backend = git\n")
+	if _, err := CommitVault(repo); err != nil {
+		t.Fatalf("CommitVault: %v", err)
+	}
+
+	if !IsVaultTracked(repo) {
+		t.Error("expected .envault/config to be tracked after commit")
+	}
+}
+
+func TestIsVaultTracked_FalseWhenUntracked(t *testing.T) {
+	bare := initBareRepo(t)
+	seedRemote(t, bare)
+	repo := cloneRepo(t, bare)
+
+	writeVaultFile(t, repo, "config", "backend = git\n")
+	// Never committed — still untracked.
+
+	if IsVaultTracked(repo) {
+		t.Error("expected .envault/config to be untracked before any commit")
+	}
+}
+
+func TestCleanVault_RemovesUntrackedFiles(t *testing.T) {
+	bare := initBareRepo(t)
+	seedRemote(t, bare)
+	repo := cloneRepo(t, bare)
+
+	writeVaultFile(t, repo, "secrets.enc", `{"version":1,"entries":[]}`)
+	untracked := filepath.Join(repo, ".envault", "secrets.enc")
+	if _, err := os.Stat(untracked); err != nil {
+		t.Fatalf("expected untracked file to exist before clean: %v", err)
+	}
+
+	if err := CleanVault(repo); err != nil {
+		t.Fatalf("CleanVault: %v", err)
+	}
+	if _, err := os.Stat(untracked); !os.IsNotExist(err) {
+		t.Error("expected untracked vault file to be removed by CleanVault")
+	}
+}
+
+func TestCleanVault_LeavesCommittedFilesIntact(t *testing.T) {
+	bare := initBareRepo(t)
+	seedRemote(t, bare)
+	repo := cloneRepo(t, bare)
+
+	writeVaultFile(t, repo, "config", "backend = git\n")
+	if _, err := CommitVault(repo); err != nil {
+		t.Fatalf("CommitVault: %v", err)
+	}
+
+	if err := CleanVault(repo); err != nil {
+		t.Fatalf("CleanVault: %v", err)
+	}
+
+	committed := filepath.Join(repo, ".envault", "config")
+	if _, err := os.Stat(committed); err != nil {
+		t.Fatalf("expected committed vault file to survive CleanVault: %v", err)
+	}
+}
+
+func TestMergeOrigin_FastForward(t *testing.T) {
+	bare := initBareRepo(t)
+	seedRemote(t, bare)
+	repoA := cloneRepo(t, bare)
+	repoB := cloneRepo(t, bare)
+
+	writeVaultFile(t, repoA, "secrets.enc", `{"version":1,"entries":[{"name":"KEY"}]}`)
+	if _, err := CommitVault(repoA); err != nil {
+		t.Fatalf("A CommitVault: %v", err)
+	}
+	if err := PushOrigin(repoA); err != nil {
+		t.Fatalf("A PushOrigin: %v", err)
+	}
+
+	if err := FetchOrigin(repoB); err != nil {
+		t.Fatalf("B FetchOrigin: %v", err)
+	}
+	if err := MergeOrigin(repoB); err != nil {
+		t.Fatalf("MergeOrigin: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(repoB, ".envault", "secrets.enc"))
+	if err != nil {
+		t.Fatalf("read secrets.enc after merge: %v", err)
+	}
+	if !strings.Contains(string(content), "KEY") {
+		t.Errorf("merged file missing expected content: %q", content)
+	}
+}
+
+func TestMergeOrigin_ReturnsErrMergeConflict(t *testing.T) {
+	bare := initBareRepo(t)
+	seedRemote(t, bare)
+	repoA := cloneRepo(t, bare)
+	repoB := cloneRepo(t, bare)
+
+	writeVaultFile(t, repoA, "secrets.enc", `{"version":1,"entries":[{"name":"FROM_A"}]}`)
+	if _, err := CommitVault(repoA); err != nil {
+		t.Fatalf("A CommitVault: %v", err)
+	}
+	if err := PushOrigin(repoA); err != nil {
+		t.Fatalf("A PushOrigin: %v", err)
+	}
+
+	writeVaultFile(t, repoB, "secrets.enc", `{"version":1,"entries":[{"name":"FROM_B"}]}`)
+	if _, err := CommitVault(repoB); err != nil {
+		t.Fatalf("B CommitVault: %v", err)
+	}
+	if err := FetchOrigin(repoB); err != nil {
+		t.Fatalf("B FetchOrigin: %v", err)
+	}
+
+	err := MergeOrigin(repoB)
+	if err != ErrMergeConflict {
+		t.Fatalf("expected ErrMergeConflict, got %v", err)
+	}
+}

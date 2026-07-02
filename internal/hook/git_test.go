@@ -210,6 +210,55 @@ func TestIsGitHookInstalled_FalseAfterUninstall(t *testing.T) {
 	}
 }
 
+// ---- resolveHooksDir ----
+
+func TestInstallGitHook_RespectsCoreHooksPathRelative(t *testing.T) {
+	dir := gitInitDir(t)
+	if err := exec.Command("git", "-C", dir, "config", "--local", "core.hooksPath", "custom-hooks"). //nolint:gosec // test-controlled args
+														Run(); err != nil {
+		t.Fatalf("git config core.hooksPath: %v", err)
+	}
+
+	if err := InstallGitHook(dir); err != nil {
+		t.Fatalf("InstallGitHook: %v", err)
+	}
+
+	customPath := filepath.Join(dir, "custom-hooks", "pre-commit")
+	content, err := os.ReadFile(customPath)
+	if err != nil {
+		t.Fatalf("expected hook at custom core.hooksPath location: %v", err)
+	}
+	if !strings.Contains(string(content), hookBeginMarker) {
+		t.Error("hook at custom path missing envault block")
+	}
+
+	// The default .git/hooks/pre-commit must NOT have been touched.
+	if _, err := os.Stat(hookPath(dir)); !os.IsNotExist(err) {
+		t.Error("expected no hook written to the default .git/hooks path")
+	}
+}
+
+func TestInstallGitHook_RespectsCoreHooksPathAbsolute(t *testing.T) {
+	dir := gitInitDir(t)
+	absHooks := filepath.Join(t.TempDir(), "hooks")
+	if err := exec.Command("git", "-C", dir, "config", "--local", "core.hooksPath", absHooks). //nolint:gosec // test-controlled args
+													Run(); err != nil {
+		t.Fatalf("git config core.hooksPath: %v", err)
+	}
+
+	if err := InstallGitHook(dir); err != nil {
+		t.Fatalf("InstallGitHook: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(absHooks, "pre-commit"))
+	if err != nil {
+		t.Fatalf("expected hook at absolute core.hooksPath location: %v", err)
+	}
+	if !strings.Contains(string(content), hookBeginMarker) {
+		t.Error("hook at absolute custom path missing envault block")
+	}
+}
+
 // ---- stripEnvaultBlock ----
 
 func TestStripEnvaultBlock_RemovesBlockAndSeparator(t *testing.T) {

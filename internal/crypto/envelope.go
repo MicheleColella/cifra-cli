@@ -6,6 +6,8 @@ import (
 	"io"
 
 	"golang.org/x/crypto/curve25519"
+
+	"github.com/MicheleColella/envault-cli/internal/secmem"
 )
 
 // envelopeVersion is the only supported on-disk format revision.
@@ -43,6 +45,8 @@ func Seal(payload []byte, recipients []PublicKey, suite CipherSuite) (*Envelope,
 	if err != nil {
 		return nil, fmt.Errorf("generate dek: %w", err)
 	}
+	secmem.Lock(dek)
+	defer secmem.Unlock(dek)
 	defer clear(dek)
 
 	ad := envelopeAD(envelopeVersion, suite)
@@ -80,6 +84,8 @@ func Unseal(env *Envelope, privateKey PrivateKey) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	secmem.Lock(dek)
+	defer secmem.Unlock(dek)
 	defer clear(dek)
 
 	aead, err := newAEAD(dek, env.Suite)
@@ -112,6 +118,8 @@ func Rewrap(env *Envelope, privKey PrivateKey, recipients []PublicKey) (*Envelop
 	if err != nil {
 		return nil, fmt.Errorf("recover dek: %w", err)
 	}
+	secmem.Lock(dek)
+	defer secmem.Unlock(dek)
 	defer clear(dek)
 
 	blocks, err := wrapDEKForAll(dek, recipients, env.Suite)
@@ -155,9 +163,9 @@ func encryptPayload(payload, dek, ad []byte, suite CipherSuite) (nonce, cipherte
 		return nil, nil, fmt.Errorf("create aead: %w", err)
 	}
 
-	nonce = make([]byte, aead.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return nil, nil, fmt.Errorf("generate nonce: %w", err)
+	nonce, err = randomNonce(aead.NonceSize())
+	if err != nil {
+		return nil, nil, err
 	}
 
 	return nonce, aead.Seal(nil, nonce, payload, ad), nil
@@ -184,18 +192,24 @@ func wrapDEK(dek []byte, recipPub PublicKey, suite CipherSuite) (Recipient, erro
 	if err != nil {
 		return Recipient{}, fmt.Errorf("generate ephemeral keypair: %w", err)
 	}
+	secmem.Lock(ephPriv[:])
+	defer secmem.Unlock(ephPriv[:])
 	defer clear(ephPriv[:]) // zero the ephemeral private scalar after ECDH
 
 	shared, err := curve25519.X25519(ephPriv[:], recipPub[:])
 	if err != nil {
 		return Recipient{}, fmt.Errorf("ecdh: %w", err)
 	}
+	secmem.Lock(shared)
+	defer secmem.Unlock(shared)
 	defer clear(shared)
 
 	wk, err := deriveWrappingKey(shared, ephPub[:], recipPub[:])
 	if err != nil {
 		return Recipient{}, fmt.Errorf("derive wrapping key: %w", err)
 	}
+	secmem.Lock(wk)
+	defer secmem.Unlock(wk)
 	defer clear(wk)
 
 	aead, err := newAEAD(wk, suite)
@@ -203,9 +217,9 @@ func wrapDEK(dek []byte, recipPub PublicKey, suite CipherSuite) (Recipient, erro
 		return Recipient{}, fmt.Errorf("create wrap aead: %w", err)
 	}
 
-	wrapNonce := make([]byte, aead.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, wrapNonce); err != nil {
-		return Recipient{}, fmt.Errorf("generate wrap nonce: %w", err)
+	wrapNonce, err := randomNonce(aead.NonceSize())
+	if err != nil {
+		return Recipient{}, err
 	}
 
 	return Recipient{
@@ -252,12 +266,16 @@ func tryUnwrap(r Recipient, privateKey PrivateKey, suite CipherSuite) ([]byte, e
 	if err != nil {
 		return nil, fmt.Errorf("ecdh: %w", err)
 	}
+	secmem.Lock(shared)
+	defer secmem.Unlock(shared)
 	defer clear(shared)
 
 	wk, err := deriveWrappingKey(shared, r.EphemeralPublic, ownPub)
 	if err != nil {
 		return nil, fmt.Errorf("derive wrapping key: %w", err)
 	}
+	secmem.Lock(wk)
+	defer secmem.Unlock(wk)
 	defer clear(wk)
 
 	aead, err := newAEAD(wk, suite)

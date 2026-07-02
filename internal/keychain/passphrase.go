@@ -10,6 +10,7 @@ import (
 
 	"golang.org/x/crypto/argon2"
 
+	"github.com/MicheleColella/envault-cli/internal/secmem"
 	"github.com/MicheleColella/envault-cli/internal/ui"
 )
 
@@ -80,6 +81,8 @@ func (p *protectedStore) Seal(id string, privateKey []byte) error {
 	if err != nil {
 		return err
 	}
+	secmem.Lock(pass)
+	defer secmem.Unlock(pass)
 	defer clear(pass)
 
 	salt := make([]byte, saltLen)
@@ -88,6 +91,8 @@ func (p *protectedStore) Seal(id string, privateKey []byte) error {
 	}
 
 	kek := argon2.IDKey(pass, salt, argonTime, argonMemory, argonThreads, argonKeyLen)
+	secmem.Lock(kek)
+	defer secmem.Unlock(kek)
 	defer clear(kek)
 
 	gcm, err := newGCM(kek)
@@ -147,9 +152,13 @@ func (p *protectedStore) Unseal(id string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	secmem.Lock(pass)
+	defer secmem.Unlock(pass)
 	defer clear(pass)
 
 	kek := argon2.IDKey(pass, blob.Salt, argonTime, argonMemory, argonThreads, argonKeyLen)
+	secmem.Lock(kek)
+	defer secmem.Unlock(kek)
 	defer clear(kek)
 
 	gcm, err := newGCM(kek)
@@ -165,6 +174,10 @@ func (p *protectedStore) Unseal(id string) ([]byte, error) {
 		// Wrong passphrase or tampered blob — never leak which.
 		return nil, ErrBadPassphrase
 	}
+	// key is the decrypted private key handed back to the caller (which owns
+	// clearing it, per the Zeroization invariant) — lock it here since it's
+	// the longest-lived plaintext buffer this function produces.
+	secmem.Lock(key)
 	return key, nil
 }
 

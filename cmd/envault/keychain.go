@@ -28,6 +28,14 @@ func openKeychain() (keychain.Store, error) {
 	return &agentAwareStore{inner: keychain.NewProtected(inner, askPassphrase)}, nil
 }
 
+// openRawKeychain returns the unwrapped OS-backend keychain — no passphrase
+// protection, no agent. Only `envault key reseal` uses this: keychain.Reseal
+// needs raw, unprotected access to stage a resealed blob under a temp id
+// before touching the real one (see internal/keychain/reseal.go).
+func openRawKeychain() (keychain.Store, error) {
+	return keychain.New()
+}
+
 // agentAwareStore tries the envault key-unlock agent (internal/agent) before
 // falling back to inner unchanged. Only Unseal is intercepted — Seal/Delete
 // manage the OS keychain itself and have nothing to do with the agent's

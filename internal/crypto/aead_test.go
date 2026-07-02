@@ -78,6 +78,30 @@ func testAEADRoundTrip(t *testing.T, suite CipherSuite) {
 	}
 }
 
+func TestRandomNonce_CorrectLength(t *testing.T) {
+	nonce, err := randomNonce(12)
+	if err != nil {
+		t.Fatalf("randomNonce: %v", err)
+	}
+	if len(nonce) != 12 {
+		t.Fatalf("got length %d, want 12", len(nonce))
+	}
+}
+
+func TestRandomNonce_DifferentEachCall(t *testing.T) {
+	a, err := randomNonce(12)
+	if err != nil {
+		t.Fatalf("randomNonce: %v", err)
+	}
+	b, err := randomNonce(12)
+	if err != nil {
+		t.Fatalf("randomNonce: %v", err)
+	}
+	if bytes.Equal(a, b) {
+		t.Fatal("two consecutive nonces are identical — RNG is not working")
+	}
+}
+
 func randomKey(t *testing.T) []byte {
 	t.Helper()
 	key := make([]byte, 32)

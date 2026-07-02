@@ -101,8 +101,26 @@ func SaveStore(repoRoot string, s *Store) error {
 	}
 	data = append(data, '\n')
 
-	if err := os.WriteFile(tmpPath, data, 0o600); err != nil {
+	f, err := os.OpenFile(tmpPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return fmt.Errorf("open secrets temp file: %w", err)
+	}
+	if _, err := f.Write(data); err != nil {
+		_ = f.Close()
+		_ = os.Remove(tmpPath)
 		return fmt.Errorf("write secrets temp file: %w", err)
+	}
+	// fsync before rename so the write survives a power loss between here and
+	// the rename below — otherwise the data can still be sitting in the page
+	// cache when the crash happens, and the rename alone doesn't flush it.
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("fsync secrets temp file: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("close secrets temp file: %w", err)
 	}
 	if err := os.Rename(tmpPath, path); err != nil {
 		_ = os.Remove(tmpPath)

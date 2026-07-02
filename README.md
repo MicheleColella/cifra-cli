@@ -226,6 +226,7 @@ is missing.
 | `envault key export` | Export your public key to share with teammates | ✅ |
 | `envault key import` | Add a teammate's public key as a recipient | ✅ |
 | `envault key delete` | Remove a recipient from the vault | ✅ |
+| `envault key reseal` | Migrate a legacy unencrypted keychain key (or change its passphrase) to the encrypted-at-rest format | ✅ |
 | `envault import <file.env>` | Bulk-import from an existing `.env` file | ✅ |
 | `envault data store <file>` | Store an arbitrary file (JSON, PEM, binary…) | ✅ |
 | `envault add <KEY>` | Add or update a single secret | ✅ |
@@ -260,7 +261,9 @@ Envault is designed so that you do not have to trust anyone except your Git remo
 
 - **End-to-end encryption** — secrets are encrypted on your machine before they are committed. Each secret uses a random data key (AES-256-GCM) wrapped to every recipient's X25519 public key. Only recipients with a matching private key can decrypt.
 - **Private keys never leave your machine** — they are sealed in the OS keychain (macOS Keychain via `security`, Linux kernel keyring via `keyctl`) and are never sent anywhere.
-- **Private keys are encrypted at rest** — the keychain blob is itself encrypted under a passphrase-derived key (Argon2id → AES-256-GCM), so even a process that reads your keychain gets useless ciphertext without your passphrase.
+- **Private keys are encrypted at rest** — the keychain blob is itself encrypted under a passphrase-derived key (Argon2id → AES-256-GCM), so even a process that reads your keychain gets useless ciphertext without your passphrase. `envault key reseal` migrates a legacy unencrypted key in place.
+- **Memory hardening (best-effort)** — DEKs, private keys, and decrypted payloads are pinned against swap and excluded from core dumps while in use (`internal/secmem`). Scope is narrow by design — see [SECURITY.md](SECURITY.md) for the full threat model, including what this does *not* defend against.
+- **Durable writes** — the encrypted secrets store is fsynced before the atomic rename that publishes it, so a crash mid-write never corrupts the vault.
 - **Zero-trust remote** — the Git remote only ever stores ciphertext. Even if the remote is compromised, no secrets are exposed.
 - **No disk writes** — secrets are decrypted in memory and injected directly into the child process. Nothing is written to a temp file.
 - **Per-recipient access control** — adding or removing a teammate from the vault controls who can decrypt. `rotate` re-seals a secret with a fresh data key for the current recipients, truly revoking a removed member.
@@ -293,8 +296,8 @@ install from signed cross-platform releases.
 | v0.9.3 — Embedded MCP server (Claude Code native protocol) | ✅ shipped |
 | v0.9.4 — Key-unlock agent (ssh-agent-style, passphrase-free Claude Code UX) | ✅ shipped |
 | v0.9.5 — Integration testing (Forgejo container E2E) | ✅ shipped |
-| v0.9.6 — Security hardening & coverage | 🔜 next |
-| v0.9.7 — Custom Git merge driver & disaster recovery | planned |
+| v0.9.6 — Security hardening & coverage | ✅ shipped |
+| v0.9.7 — Custom Git merge driver & disaster recovery | 🔜 next |
 | v1.0.0 — Stable release | planned |
 
 ---

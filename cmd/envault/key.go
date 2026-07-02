@@ -11,6 +11,7 @@ import (
 
 	envcrypto "github.com/MicheleColella/envault-cli/internal/crypto"
 	"github.com/MicheleColella/envault-cli/internal/keychain"
+	"github.com/MicheleColella/envault-cli/internal/secmem"
 	"github.com/MicheleColella/envault-cli/internal/ui"
 	"github.com/MicheleColella/envault-cli/internal/vault"
 )
@@ -26,6 +27,7 @@ func newKeyCmd() *cobra.Command {
 		newKeyExportCmd(),
 		newKeyImportCmd(),
 		newKeyDeleteCmd(),
+		newKeyResealCmd(),
 	)
 	return cmd
 }
@@ -157,6 +159,9 @@ func runKeyExport(id string, kc keychain.Store) error {
 	if err != nil {
 		return fmt.Errorf("unseal key for %s: %w", id, err)
 	}
+	secmem.Lock(privBytes)
+	defer secmem.Unlock(privBytes)
+	defer clear(privBytes) // zero the heap allocation returned by kc.Unseal
 
 	var priv envcrypto.PrivateKey
 	copy(priv[:], privBytes)
@@ -261,6 +266,42 @@ func runKeyDelete(id string, kc keychain.Store, repoRoot string, keepRecipient b
 		return nil
 	}
 	ui.Info("removed from .envault/recipients")
+	return nil
+}
+
+// ---------- key reseal ----------
+
+func newKeyResealCmd() *cobra.Command {
+	var id string
+
+	cmd := &cobra.Command{
+		Use:   "reseal",
+		Short: "Migrate a legacy unencrypted keychain key to the encrypted-at-rest format",
+		Long: "Re-encrypts the private key for --id under a passphrase-derived key " +
+			"(Argon2id -> AES-256-GCM). Use this to close the residual left by a key " +
+			"generated before this protection existed, or to change its passphrase. " +
+			"Safe to run on a key that is already protected — it will simply be resealed.",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			raw, err := openRawKeychain()
+			if err != nil {
+				return err
+			}
+			return runKeyReseal(id, raw)
+		},
+	}
+
+	cmd.Flags().StringVar(&id, "id", "", "identity of the keypair to reseal, e.g. alice@example.com")
+	_ = cmd.MarkFlagRequired("id")
+	return cmd
+}
+
+// runKeyReseal is the testable core of "envault key reseal".
+func runKeyReseal(id string, raw keychain.Store) error {
+	if err := keychain.Reseal(raw, askPassphrase, id); err != nil {
+		return fmt.Errorf("reseal key for %s: %w", id, err)
+	}
+	ui.OK(fmt.Sprintf("Key resealed for %s", id))
+	ui.Info("private key is now encrypted at rest under the passphrase you just set")
 	return nil
 }
 
