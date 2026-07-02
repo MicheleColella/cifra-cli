@@ -111,7 +111,7 @@ func TestAddRecipient_DuplicateID(t *testing.T) {
 }
 
 func TestAddRecipient_NoVaultDir(t *testing.T) {
-	root := t.TempDir() // no .envault dir
+	root := t.TempDir() // no .cifra dir
 
 	var pub [32]byte
 	err := AddRecipient(root, Recipient{ID: "alice@example.com", PublicKey: pub})

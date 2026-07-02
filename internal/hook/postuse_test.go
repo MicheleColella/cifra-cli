@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/MicheleColella/envault-cli/internal/agent"
-	envcrypto "github.com/MicheleColella/envault-cli/internal/crypto"
-	"github.com/MicheleColella/envault-cli/internal/vault"
+	"github.com/MicheleColella/cifra-cli/internal/agent"
+	envcrypto "github.com/MicheleColella/cifra-cli/internal/crypto"
+	"github.com/MicheleColella/cifra-cli/internal/vault"
 )
 
 func TestMaskSecrets_ReplacesPlaintext(t *testing.T) {
@@ -23,7 +23,7 @@ func TestMaskSecrets_ReplacesPlaintext(t *testing.T) {
 	if strings.Contains(masked, "s3cr3t!") {
 		t.Error("plaintext still present after masking")
 	}
-	if !strings.Contains(masked, "<ENVAULT:DB_PASSWORD>") {
+	if !strings.Contains(masked, "<CIFRA:DB_PASSWORD>") {
 		t.Error("placeholder not inserted")
 	}
 	if len(names) != 1 || names[0] != "DB_PASSWORD" {
@@ -42,7 +42,7 @@ func TestMaskSecrets_ReplacesBase64Variant(t *testing.T) {
 	if strings.Contains(masked, "bXlzZWNyZXQ=") {
 		t.Error("base64 secret still present after masking")
 	}
-	if !strings.Contains(masked, "<ENVAULT:API_KEY|base64>") {
+	if !strings.Contains(masked, "<CIFRA:API_KEY|base64>") {
 		t.Errorf("base64 placeholder not inserted; got: %s", masked)
 	}
 	if len(names) == 0 {
@@ -100,25 +100,25 @@ func TestMaskSecrets_EmptyPlaintextSkipped(t *testing.T) {
 	}
 }
 
-// ---- RunHookPostuse via the key-unlock agent (no ENVAULT_PASSPHRASE) -------
+// ---- RunHookPostuse via the key-unlock agent (no CIFRA_PASSPHRASE) -------
 
 // withTestAgentSocket points the agent package's fixed socket path at a
 // short-path temp dir for the test (see internal/agent's own tests for why
-// t.TempDir() is too long on macOS), and unsets ENVAULT_PASSPHRASE so any
+// t.TempDir() is too long on macOS), and unsets CIFRA_PASSPHRASE so any
 // masking in the test can only succeed via the agent.
 func withTestAgentSocket(t *testing.T) {
 	t.Helper()
-	home, err := os.MkdirTemp("/tmp", "envault-hook-test-")
+	home, err := os.MkdirTemp("/tmp", "cifra-hook-test-")
 	if err != nil {
 		t.Fatalf("MkdirTemp: %v", err)
 	}
 	oldHome := os.Getenv("HOME")
-	oldPass := os.Getenv("ENVAULT_PASSPHRASE")
+	oldPass := os.Getenv("CIFRA_PASSPHRASE")
 	_ = os.Setenv("HOME", home)
-	_ = os.Unsetenv("ENVAULT_PASSPHRASE")
+	_ = os.Unsetenv("CIFRA_PASSPHRASE")
 	t.Cleanup(func() {
 		_ = os.Setenv("HOME", oldHome)
-		_ = os.Setenv("ENVAULT_PASSPHRASE", oldPass)
+		_ = os.Setenv("CIFRA_PASSPHRASE", oldPass)
 		_ = os.RemoveAll(home)
 	})
 }
@@ -183,7 +183,7 @@ func TestRunHookPostuse_MasksViaAgent_NoPassphraseNeeded(t *testing.T) {
 	if strings.Contains(w.String(), "topsecretvalue") {
 		t.Errorf("secret plaintext leaked into masked output: %s", w.String())
 	}
-	if !strings.Contains(w.String(), "<ENVAULT:MY_SECRET>") {
+	if !strings.Contains(w.String(), "<CIFRA:MY_SECRET>") {
 		t.Errorf("expected placeholder in masked output, got: %s", w.String())
 	}
 }
@@ -191,17 +191,17 @@ func TestRunHookPostuse_MasksViaAgent_NoPassphraseNeeded(t *testing.T) {
 // ---- findMaskingKey ----
 
 func TestFindMaskingKey_NoAgentNoPassphrase(t *testing.T) {
-	withTestAgentSocket(t) // ensures ENVAULT_PASSPHRASE is unset; no agent listening
+	withTestAgentSocket(t) // ensures CIFRA_PASSPHRASE is unset; no agent listening
 
 	_, ok := findMaskingKey([]vault.Recipient{{ID: "nobody@example.com"}})
 	if ok {
-		t.Fatal("expected false with no agent running and no ENVAULT_PASSPHRASE")
+		t.Fatal("expected false with no agent running and no CIFRA_PASSPHRASE")
 	}
 }
 
 func TestFindMaskingKey_PassphraseSetButKeychainUnavailable(t *testing.T) {
 	withTestAgentSocket(t)
-	t.Setenv("ENVAULT_PASSPHRASE", "irrelevant")
+	t.Setenv("CIFRA_PASSPHRASE", "irrelevant")
 	t.Setenv("PATH", t.TempDir()) // no OS keychain backend reachable
 
 	_, ok := findMaskingKey([]vault.Recipient{{ID: "nobody@example.com"}})
@@ -212,7 +212,7 @@ func TestFindMaskingKey_PassphraseSetButKeychainUnavailable(t *testing.T) {
 
 func TestFindMaskingKey_PassphraseSetNoMatchingRecipient(t *testing.T) {
 	withTestAgentSocket(t)
-	t.Setenv("ENVAULT_PASSPHRASE", "some-passphrase")
+	t.Setenv("CIFRA_PASSPHRASE", "some-passphrase")
 
 	// PATH is left as-is: on darwin this reaches the real `security` CLI,
 	// which simply won't have this id — a legitimate ErrNotFound path,

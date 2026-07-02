@@ -7,7 +7,7 @@ import (
 
 	"golang.org/x/sys/unix"
 
-	"github.com/MicheleColella/envault-cli/internal/ui"
+	"github.com/MicheleColella/cifra-cli/internal/ui"
 )
 
 func lock(buf []byte) {

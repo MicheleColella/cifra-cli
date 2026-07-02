@@ -14,7 +14,7 @@ func TestInit_CreatesVaultDir(t *testing.T) {
 		t.Fatalf("Init: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, DirName)); err != nil {
-		t.Errorf(".envault dir not created: %v", err)
+		t.Errorf(".cifra dir not created: %v", err)
 	}
 }
 

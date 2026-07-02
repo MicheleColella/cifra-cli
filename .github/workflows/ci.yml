@@ -64,7 +64,7 @@ jobs:
           cache: true
 
       - name: go test -tags=e2e
-        run: go test -tags=e2e -timeout 15m ./cmd/envault/...
+        run: go test -tags=e2e -timeout 15m ./cmd/cifra/...
 
   build:
     name: Build (${{ matrix.os }})

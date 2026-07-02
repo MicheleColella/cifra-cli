@@ -1,13 +1,13 @@
 {
-  "name": "envault",
+  "name": "cifra",
   "version": "0.9.5",
   "description": "Git-backed, zero-trust secrets CLI with an AI Privacy Shield: blocks agents from reading vault secrets and masks any secret values that leak into model context.",
   "author": {
     "name": "Michele Colella",
     "url": "https://github.com/MicheleColella"
   },
-  "homepage": "https://github.com/MicheleColella/envault-cli",
-  "repository": "https://github.com/MicheleColella/envault-cli",
+  "homepage": "https://github.com/MicheleColella/cifra-cli",
+  "repository": "https://github.com/MicheleColella/cifra-cli",
   "license": "MIT",
   "keywords": ["secrets", "encryption", "git", "zero-trust", "privacy-shield", "dotenv"]
 }

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	envcrypto "github.com/MicheleColella/envault-cli/internal/crypto"
+	envcrypto "github.com/MicheleColella/cifra-cli/internal/crypto"
 )
 
 const secretsFile = "secrets.enc"
@@ -37,7 +37,7 @@ type Entry struct {
 	Envelope   *envcrypto.Envelope   `json:"envelope"`
 }
 
-// Store is the on-disk collection of sealed entries (.envault/secrets.enc).
+// Store is the on-disk collection of sealed entries (.cifra/secrets.enc).
 type Store struct {
 	Version int     `json:"version"`
 	Entries []Entry `json:"entries"`
@@ -67,9 +67,9 @@ func LoadStore(repoRoot string) (*Store, error) {
 
 // migrateStore upgrades an older on-disk store to the current schema in place, or
 // returns an actionable error. Forward-compatibility contract:
-//   - version > storeVersion: written by a newer envault — fail clearly (upgrade).
+//   - version > storeVersion: written by a newer cifra — fail clearly (upgrade).
 //   - version < storeVersion: older schema — migrate forward here as versions are
-//     added, so upgrading envault never breaks an existing vault.
+//     added, so upgrading cifra never breaks an existing vault.
 //   - version == storeVersion: nothing to do.
 //
 // Today storeVersion is 1, so there is no older schema to migrate yet; the
@@ -78,13 +78,13 @@ func migrateStore(s *Store) error {
 	switch {
 	case s.Version > storeVersion:
 		return fmt.Errorf(
-			"secrets store version %d is newer than this envault supports (%d) — upgrade envault",
+			"secrets store version %d is newer than this cifra supports (%d) — upgrade cifra",
 			s.Version, storeVersion,
 		)
 	case s.Version < storeVersion:
 		// No historical versions exist before v1. When a future version bumps the
 		// schema, add forward migrations here (e.g. case 1: ...; s.Version = 2).
-		return fmt.Errorf("secrets store version %d is not supported by this envault", s.Version)
+		return fmt.Errorf("secrets store version %d is not supported by this cifra", s.Version)
 	default:
 		return nil
 	}

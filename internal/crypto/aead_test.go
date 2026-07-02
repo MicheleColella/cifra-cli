@@ -66,7 +66,7 @@ func testAEADRoundTrip(t *testing.T, suite CipherSuite) {
 		t.Fatalf("generate nonce: %v", err)
 	}
 
-	plaintext := []byte("hello, envault crypto")
+	plaintext := []byte("hello, cifra crypto")
 	ct := aead.Seal(nil, nonce, plaintext, nil)
 
 	got, err := aead.Open(nil, nonce, ct, nil)

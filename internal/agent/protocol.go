@@ -1,15 +1,15 @@
 // Package agent implements a small ssh-agent-style background daemon that
 // caches decrypted private keys in memory for a bounded TTL, so a headless
 // process (like the MCP server Claude Code spawns) can unseal a vault secret
-// without a passphrase prompt or ENVAULT_PASSPHRASE — as long as a human has
+// without a passphrase prompt or CIFRA_PASSPHRASE — as long as a human has
 // unlocked that key from a real terminal within the TTL window.
 //
 // Transport: a Unix domain socket, one JSON request/response pair per
 // connection. Socket and containing directory are owner-only (0600/0700),
-// keeping the same same-user threat model as ENVAULT_PASSPHRASE or a raw
+// keeping the same same-user threat model as CIFRA_PASSPHRASE or a raw
 // keychain blob — this is a convenience trade-off (wider exposure window: a
 // decrypted key lives in memory up to TTL instead of being cleared right
-// after use), never the default, and strictly opt-in via `envault agent
+// after use), never the default, and strictly opt-in via `cifra agent
 // unlock`.
 package agent
 

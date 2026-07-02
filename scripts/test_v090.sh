@@ -38,7 +38,7 @@ else
   fail "snapshot release failed (see /tmp/gr_v090.log)"; exit 1
 fi
 for triple in darwin_amd64 darwin_arm64 linux_amd64 linux_arm64; do
-  if ls dist/envault_*_"${triple}".tar.gz >/dev/null 2>&1; then pass "archive present: $triple"; else fail "missing archive: $triple"; fi
+  if ls dist/cifra_*_"${triple}".tar.gz >/dev/null 2>&1; then pass "archive present: $triple"; else fail "missing archive: $triple"; fi
 done
 [ -f dist/checksums.txt ] && pass "checksums.txt present" || fail "checksums.txt missing"
 
@@ -46,7 +46,7 @@ echo "== install.sh naming + checksum agree with release output (host platform) 
 # Reproduce install.sh's os/arch detection.
 os=$(uname -s | tr '[:upper:]' '[:lower:]')
 arch=$(uname -m); case "$arch" in x86_64|amd64) arch=amd64;; arm64|aarch64) arch=arm64;; esac
-archive=$(ls dist/envault_*_"${os}_${arch}".tar.gz 2>/dev/null | head -1)
+archive=$(ls dist/cifra_*_"${os}_${arch}".tar.gz 2>/dev/null | head -1)
 if [ -n "$archive" ]; then
   pass "host archive found: $(basename "$archive")"
   sumcmd="sha256sum"; command -v sha256sum >/dev/null 2>&1 || sumcmd="shasum -a 256"
@@ -56,7 +56,7 @@ if [ -n "$archive" ]; then
     fail "checksum verification failed"
   fi
   tmp=$(mktemp -d); tar -xzf "$archive" -C "$tmp"
-  if [ -x "$tmp/envault" ] && "$tmp/envault" --version >/dev/null 2>&1; then
+  if [ -x "$tmp/cifra" ] && "$tmp/cifra" --version >/dev/null 2>&1; then
     pass "extracted binary runs --version"
   else
     fail "extracted binary did not run"

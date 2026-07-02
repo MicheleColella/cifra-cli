@@ -7,13 +7,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	envcrypto "github.com/MicheleColella/envault-cli/internal/crypto"
-	"github.com/MicheleColella/envault-cli/internal/keychain"
-	"github.com/MicheleColella/envault-cli/internal/vault"
+	envcrypto "github.com/MicheleColella/cifra-cli/internal/crypto"
+	"github.com/MicheleColella/cifra-cli/internal/keychain"
+	"github.com/MicheleColella/cifra-cli/internal/vault"
 )
 
 // fakeSecurityBinary stands in for the real macOS `security` CLI so
-// findMaskingKey's ENVAULT_PASSPHRASE fallback (keychain.New -> the real OS
+// findMaskingKey's CIFRA_PASSPHRASE fallback (keychain.New -> the real OS
 // backend) can be exercised end to end without touching the developer's
 // actual OS keychain. Mirrors internal/keychain's own fake-security test
 // fixture — kept local since it can't be shared across package boundaries
@@ -69,7 +69,7 @@ esac
 func TestFindMaskingKey_PassphraseFallbackSucceeds(t *testing.T) {
 	withTestAgentSocket(t) // no agent listening — forces the passphrase path
 	fakeSecurityBinary(t)
-	t.Setenv("ENVAULT_PASSPHRASE", "the-passphrase")
+	t.Setenv("CIFRA_PASSPHRASE", "the-passphrase")
 
 	priv, pub, err := envcrypto.GenerateKeyPair()
 	if err != nil {

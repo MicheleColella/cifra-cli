@@ -4,7 +4,7 @@
       {
         "matcher": ".*",
         "hooks": [
-          { "type": "command", "command": "envault hook preuse" }
+          { "type": "command", "command": "cifra hook preuse" }
         ]
       }
     ],
@@ -12,7 +12,7 @@
       {
         "matcher": ".*",
         "hooks": [
-          { "type": "command", "command": "envault hook postuse" }
+          { "type": "command", "command": "cifra hook postuse" }
         ]
       }
     ]

@@ -7,14 +7,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/MicheleColella/envault-cli/internal/protect"
+	"github.com/MicheleColella/cifra-cli/internal/protect"
 )
 
 // setupRedTeamDir creates a vault dir with .env protected and chdirs into it.
 func setupRedTeamDir(t *testing.T) {
 	t.Helper()
 	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, ".envault"), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, ".cifra"), 0o700); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
 	if err := protect.AddPattern(dir, ".env"); err != nil {

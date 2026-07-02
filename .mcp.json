@@ -1,7 +1,7 @@
 {
   "mcpServers": {
-    "envault": {
-      "command": "envault",
+    "cifra": {
+      "command": "cifra",
       "args": ["mcp", "serve", "--project", "${CLAUDE_PROJECT_DIR}"]
     }
   }

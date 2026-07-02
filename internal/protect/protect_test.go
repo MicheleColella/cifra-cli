@@ -9,7 +9,7 @@ import (
 func makeVaultDir(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, ".envault"), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, ".cifra"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	return dir

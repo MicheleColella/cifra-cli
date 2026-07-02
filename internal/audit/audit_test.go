@@ -9,7 +9,7 @@ import (
 func makeVaultDir(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(dir, ".envault"), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, ".cifra"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 	return dir
@@ -20,7 +20,7 @@ func TestAppendEntry_CreatesLog(t *testing.T) {
 	if err := AppendEntry(dir, "Read", ActionBlockedPath, "config/secrets.json", "config/secrets.json"); err != nil {
 		t.Fatalf("AppendEntry: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join(dir, ".envault", logFile)); err != nil {
+	if _, err := os.Stat(filepath.Join(dir, ".cifra", logFile)); err != nil {
 		t.Fatalf("log not created: %v", err)
 	}
 }

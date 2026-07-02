@@ -7,7 +7,7 @@ import (
 
 // FuzzUnseal verifies that protectedStore.Unseal never panics regardless of
 // what bytes happen to be sitting in the OS keychain — a corrupted blob (disk
-// error, another process racing envault, an attacker probing the format)
+// error, another process racing cifra, an attacker probing the format)
 // must always surface a typed error, never crash the CLI or misread garbage
 // as key material.
 func FuzzUnseal(f *testing.F) {

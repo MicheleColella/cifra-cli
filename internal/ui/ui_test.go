@@ -53,8 +53,8 @@ func TestWarn(t *testing.T) {
 }
 
 func TestHeader(t *testing.T) {
-	got := captureOut(func() { Header("Envault") })
-	if !strings.Contains(got, "Envault") {
+	got := captureOut(func() { Header("Cifra") })
+	if !strings.Contains(got, "Cifra") {
 		t.Errorf("Header() = %q, want message", got)
 	}
 }

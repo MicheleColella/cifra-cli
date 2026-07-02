@@ -8,7 +8,7 @@ import (
 )
 
 // DirName is the vault directory created inside the repository root.
-const DirName = ".envault"
+const DirName = ".cifra"
 
 const (
 	configFile     = "config"
@@ -19,7 +19,7 @@ const (
 // and force is false.
 var ErrAlreadyInitialized = errors.New("vault already initialized (use --force to reinitialize)")
 
-// Config holds the vault configuration written to .envault/config.
+// Config holds the vault configuration written to .cifra/config.
 type Config struct {
 	Backend string
 	Remote  string

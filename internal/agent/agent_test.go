@@ -9,13 +9,13 @@ import (
 )
 
 // withTestSocket points SocketPath at a fresh temp dir for the duration of
-// the test by overriding HOME, so tests never touch the real ~/.envault.
+// the test by overriding HOME, so tests never touch the real ~/.cifra.
 // Uses a short path directly under /tmp rather than t.TempDir(), whose long
 // macOS paths (/var/folders/.../T/...) overflow the ~104-byte sockaddr_un
 // path limit.
 func withTestSocket(t *testing.T) {
 	t.Helper()
-	home, err := os.MkdirTemp("/tmp", "envault-agent-test-")
+	home, err := os.MkdirTemp("/tmp", "cifra-agent-test-")
 	if err != nil {
 		t.Fatalf("MkdirTemp: %v", err)
 	}

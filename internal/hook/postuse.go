@@ -8,11 +8,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/MicheleColella/envault-cli/internal/agent"
-	"github.com/MicheleColella/envault-cli/internal/audit"
-	envcrypto "github.com/MicheleColella/envault-cli/internal/crypto"
-	"github.com/MicheleColella/envault-cli/internal/keychain"
-	"github.com/MicheleColella/envault-cli/internal/vault"
+	"github.com/MicheleColella/cifra-cli/internal/agent"
+	"github.com/MicheleColella/cifra-cli/internal/audit"
+	envcrypto "github.com/MicheleColella/cifra-cli/internal/crypto"
+	"github.com/MicheleColella/cifra-cli/internal/keychain"
+	"github.com/MicheleColella/cifra-cli/internal/vault"
 )
 
 // PostuseInput is the Claude Code PostToolUse hook JSON.
@@ -25,11 +25,11 @@ type PostuseInput struct {
 // RunHookPostuse reads Claude Code's PostToolUse JSON from r.
 //
 // If the current user's private key is available — via the key-unlock agent
-// (internal/agent; no passphrase needed, see envault agent unlock) or, failing
-// that, ENVAULT_PASSPHRASE — decrypts all KindEnv vault secrets and scans the
+// (internal/agent; no passphrase needed, see cifra agent unlock) or, failing
+// that, CIFRA_PASSPHRASE — decrypts all KindEnv vault secrets and scans the
 // tool response for their plaintext values (and base64-encoded variants),
 // replacing each match with a structured placeholder
-// `<ENVAULT:NAME>` (or `<ENVAULT:NAME|base64>`) before writing to w and exiting
+// `<CIFRA:NAME>` (or `<CIFRA:NAME|base64>`) before writing to w and exiting
 // with code 2 so Claude Code uses the masked output instead of the original.
 //
 // When neither key source is available, or the vault is absent, the function
@@ -41,7 +41,7 @@ func RunHookPostuse(r io.Reader, w io.Writer) error {
 	}
 
 	wd, err := os.Getwd()
-	if err != nil || !IsEnvaultDir(wd) {
+	if err != nil || !IsCifraDir(wd) {
 		return nil
 	}
 
@@ -76,7 +76,7 @@ type secretValue struct {
 }
 
 // loadSecretsForMasking finds the current user's private key (agent cache,
-// falling back to ENVAULT_PASSPHRASE) and decrypts all KindEnv entries,
+// falling back to CIFRA_PASSPHRASE) and decrypts all KindEnv entries,
 // returning their plaintext values. Caller must not store the returned
 // slices beyond the call lifetime.
 func loadSecretsForMasking(repoRoot string) ([]secretValue, error) {
@@ -113,7 +113,7 @@ func loadSecretsForMasking(repoRoot string) ([]secretValue, error) {
 // findMaskingKey locates the current user's private key among recipients.
 // postuse runs headless (no TTY), so it can never prompt interactively —
 // it prefers the key-unlock agent's cache (no passphrase needed) and falls
-// back to ENVAULT_PASSPHRASE-based keychain decryption, the same fallback
+// back to CIFRA_PASSPHRASE-based keychain decryption, the same fallback
 // order as the passphrase-vs-agent choice everywhere else in the CLI.
 func findMaskingKey(recipients []vault.Recipient) (envcrypto.PrivateKey, bool) {
 	var priv envcrypto.PrivateKey
@@ -126,7 +126,7 @@ func findMaskingKey(recipients []vault.Recipient) (envcrypto.PrivateKey, bool) {
 		}
 	}
 
-	passphrase := os.Getenv("ENVAULT_PASSPHRASE")
+	passphrase := os.Getenv("CIFRA_PASSPHRASE")
 	if passphrase == "" {
 		return priv, false
 	}
@@ -166,8 +166,8 @@ func maskSecrets(text string, secrets []secretValue) (string, []string) {
 		plain := string(s.Plaintext)
 		b64 := base64.StdEncoding.EncodeToString(s.Plaintext)
 
-		placeholderB64 := fmt.Sprintf("<ENVAULT:%s|base64>", s.Name)
-		placeholderPlain := fmt.Sprintf("<ENVAULT:%s>", s.Name)
+		placeholderB64 := fmt.Sprintf("<CIFRA:%s|base64>", s.Name)
+		placeholderPlain := fmt.Sprintf("<CIFRA:%s>", s.Name)
 
 		newText := strings.ReplaceAll(result, b64, placeholderB64)
 		if newText != result {

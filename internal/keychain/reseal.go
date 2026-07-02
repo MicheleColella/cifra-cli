@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/MicheleColella/envault-cli/internal/secmem"
+	"github.com/MicheleColella/cifra-cli/internal/secmem"
 )
 
 // Reseal migrates the private key stored at id — whether it is still a legacy

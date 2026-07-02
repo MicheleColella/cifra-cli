@@ -1,6 +1,6 @@
 # Threat Model
 
-This document states what Envault defends against, what it does not, and why —
+This document states what Cifra defends against, what it does not, and why —
 so hardening work (memory locking, at-rest encryption, etc.) can be judged
 against a concrete model instead of vague "more security is better" intuition.
 
@@ -15,8 +15,8 @@ against a concrete model instead of vague "more security is better" intuition.
 
 | Adversary | Capability |
 |---|---|
-| A. Git remote compromise | Full read access to everything ever pushed (`.envault/secrets.enc`, `recipients`). No access to any machine. |
-| B. Same-user local process (malware, a compromised dependency, another CLI tool) | Runs as the same OS user as `envault`. Can read files the user can read, call `security`/`keyctl` without a prompt, read `/proc/<pid>/mem` on the same UID (Linux), inspect a crash dump. |
+| A. Git remote compromise | Full read access to everything ever pushed (`.cifra/secrets.enc`, `recipients`). No access to any machine. |
+| B. Same-user local process (malware, a compromised dependency, another CLI tool) | Runs as the same OS user as `cifra`. Can read files the user can read, call `security`/`keyctl` without a prompt, read `/proc/<pid>/mem` on the same UID (Linux), inspect a crash dump. |
 | C. Attacker with a copy of the disk / a backup | Can read every file, including OS keychain database files, at rest, after the machine is off. |
 | D. Attacker with `root` / kernel access | Full memory and disk access on the running machine. |
 
@@ -48,7 +48,7 @@ while they exist in memory. This defends against exactly two things:
 It does **not** defend against **Adversary B** or **D** reading live process
 memory while the key is unlocked — `mlock` only pins pages in RAM, it does not
 make them inaccessible to a process with `ptrace`/`/proc/<pid>/mem` rights on
-the same machine. Anyone who could attach a debugger to the `envault` process
+the same machine. Anyone who could attach a debugger to the `cifra` process
 could already read the memory with or without `mlock`. Treat this as
 "reduces the exposure window and prevents plaintext outliving the process
 via swap/coredump," not "encrypts memory."
@@ -56,7 +56,7 @@ via swap/coredump," not "encrypts memory."
 `mlock` is best-effort: containers commonly cap `RLIMIT_MEMLOCK` at 64 KiB,
 under which `Lock` fails. `secmem.Lock` logs and continues rather than
 failing the command — a locked-memory guarantee is not worth breaking
-`envault run` inside a container over.
+`cifra run` inside a container over.
 
 ### (c) The non-defendable residual: the passphrase itself, while it is typed
 
@@ -71,7 +71,7 @@ mistaken for a gap that `mlock` or keychain encryption should have covered —
 they don't, by design, because the passphrase must exist in plaintext
 somewhere for the KDF to run.
 
-### (d) `ENVAULT_PASSPHRASE` — CI only, never interactive
+### (d) `CIFRA_PASSPHRASE` — CI only, never interactive
 
 Setting the passphrase via environment variable is supported for headless CI
 runs, where there is no TTY to prompt on and the alternative is skipping
@@ -79,7 +79,7 @@ encryption entirely. It should **not** be used on a developer's interactive
 machine: environment variables are visible to every same-user process via
 `/proc/<pid>/environ` (Linux) or `ps eww`-style inspection, which is a strictly
 larger exposure window than a one-time interactive prompt. Prefer the
-key-unlock agent (`envault agent unlock`, TTL-bounded, in-memory only) for the
+key-unlock agent (`cifra agent unlock`, TTL-bounded, in-memory only) for the
 interactive "no repeated prompts" convenience instead.
 
 ## Summary table
@@ -89,7 +89,7 @@ interactive "no repeated prompts" convenience instead.
 | Passphrase-encrypted keychain blob | Passive extraction of the keychain database (A, C) | An attacker who also has the passphrase; live memory reads while unlocked (B, D) |
 | `secmem` memory locking | Swap/coredump exposure of plaintext buffers (C, and B for a readable dump) | Live memory reads via debugger/ptrace by a co-resident process (B, D) |
 | Key-unlock agent TTL | Bounds how long a decrypted key exists in memory at all | Same residual as the keychain during the unlocked window |
-| `ENVAULT_PASSPHRASE` | Enables non-interactive CI use | Should not be treated as equivalent-security to an interactive prompt |
+| `CIFRA_PASSPHRASE` | Enables non-interactive CI use | Should not be treated as equivalent-security to an interactive prompt |
 
 Nothing in this project defends against **Adversary D** (root/kernel access).
 That has never been a goal — if an attacker has root on your machine, no

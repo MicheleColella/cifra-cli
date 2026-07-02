@@ -22,7 +22,7 @@ func Listen() (net.Listener, error) {
 		return nil, err
 	}
 	if IsRunning() {
-		return nil, fmt.Errorf("an envault agent is already running at %s", path)
+		return nil, fmt.Errorf("an cifra agent is already running at %s", path)
 	}
 
 	dir := filepath.Dir(path)

@@ -13,7 +13,7 @@ import (
 
 func TestRunHookPreuse_AllowsNonSensitiveCommand(t *testing.T) {
 	dir := t.TempDir()
-	_ = os.MkdirAll(filepath.Join(dir, ".envault"), 0o700)
+	_ = os.MkdirAll(filepath.Join(dir, ".cifra"), 0o700)
 
 	origWd, _ := os.Getwd()
 	_ = os.Chdir(dir)
@@ -34,19 +34,19 @@ func TestRunHookPreuse_AllowsNonSensitiveCommand(t *testing.T) {
 	}
 }
 
-func TestRunHookPreuse_BlocksEnvaultCat(t *testing.T) {
+func TestRunHookPreuse_BlocksCifraCat(t *testing.T) {
 	dir := t.TempDir()
-	_ = os.MkdirAll(filepath.Join(dir, ".envault"), 0o700)
+	_ = os.MkdirAll(filepath.Join(dir, ".cifra"), 0o700)
 
 	origWd, _ := os.Getwd()
 	_ = os.Chdir(dir)
 	t.Cleanup(func() { _ = os.Chdir(origWd) })
 
 	for _, cmd := range []string{
-		"envault cat DB_URL",
-		"./envault cat API_KEY",
-		"envault export",
-		"/usr/local/bin/envault cat SECRET",
+		"cifra cat DB_URL",
+		"./cifra cat API_KEY",
+		"cifra export",
+		"/usr/local/bin/cifra cat SECRET",
 	} {
 		input := map[string]interface{}{
 			"tool_name":  "Bash",
@@ -63,15 +63,15 @@ func TestRunHookPreuse_BlocksEnvaultCat(t *testing.T) {
 		if w.Len() == 0 {
 			t.Errorf("cmd %q: expected block reason written to output, got nothing", cmd)
 		}
-		if !strings.Contains(w.String(), "envault run") {
-			t.Errorf("cmd %q: block message should mention 'envault run', got: %s", cmd, w.String())
+		if !strings.Contains(w.String(), "cifra run") {
+			t.Errorf("cmd %q: block message should mention 'cifra run', got: %s", cmd, w.String())
 		}
 	}
 }
 
 func TestRunHookPreuse_AllowsCatWithForce(t *testing.T) {
 	dir := t.TempDir()
-	_ = os.MkdirAll(filepath.Join(dir, ".envault"), 0o700)
+	_ = os.MkdirAll(filepath.Join(dir, ".cifra"), 0o700)
 
 	origWd, _ := os.Getwd()
 	_ = os.Chdir(dir)
@@ -79,7 +79,7 @@ func TestRunHookPreuse_AllowsCatWithForce(t *testing.T) {
 
 	input := map[string]interface{}{
 		"tool_name":  "Bash",
-		"tool_input": map[string]interface{}{"command": "envault cat DB_URL --force"},
+		"tool_input": map[string]interface{}{"command": "cifra cat DB_URL --force"},
 	}
 	b, _ := json.Marshal(input)
 	var w bytes.Buffer
@@ -92,8 +92,8 @@ func TestRunHookPreuse_AllowsCatWithForce(t *testing.T) {
 	}
 }
 
-func TestRunHookPreuse_NoopOutsideEnvaultRepo(t *testing.T) {
-	dir := t.TempDir() // no .envault/
+func TestRunHookPreuse_NoopOutsideCifraRepo(t *testing.T) {
+	dir := t.TempDir() // no .cifra/
 
 	origWd, _ := os.Getwd()
 	_ = os.Chdir(dir)
@@ -101,22 +101,22 @@ func TestRunHookPreuse_NoopOutsideEnvaultRepo(t *testing.T) {
 
 	input := map[string]interface{}{
 		"tool_name":  "Bash",
-		"tool_input": map[string]interface{}{"command": "envault cat DB_URL"},
+		"tool_input": map[string]interface{}{"command": "cifra cat DB_URL"},
 	}
 	b, _ := json.Marshal(input)
 	var w bytes.Buffer
 
 	if err := RunHookPreuse(bytes.NewReader(b), &w); err != nil {
-		t.Fatalf("expected no error outside envault repo, got: %v", err)
+		t.Fatalf("expected no error outside cifra repo, got: %v", err)
 	}
 	if w.Len() != 0 {
-		t.Errorf("expected no output outside envault repo, got: %s", w.String())
+		t.Errorf("expected no output outside cifra repo, got: %s", w.String())
 	}
 }
 
 func TestRunHookPreuse_NoopForNonBashTool(t *testing.T) {
 	dir := t.TempDir()
-	_ = os.MkdirAll(filepath.Join(dir, ".envault"), 0o700)
+	_ = os.MkdirAll(filepath.Join(dir, ".cifra"), 0o700)
 
 	origWd, _ := os.Getwd()
 	_ = os.Chdir(dir)
@@ -147,78 +147,78 @@ func TestRunHookPreuse_InvalidJSONIsNoop(t *testing.T) {
 	}
 }
 
-// ---- IsSensitiveEnvaultCmd --------------------------------------------------
+// ---- IsSensitiveCifraCmd --------------------------------------------------
 
-func TestIsSensitiveEnvaultCmd(t *testing.T) {
+func TestIsSensitiveCifraCmd(t *testing.T) {
 	sensitive := []string{
-		"envault cat DB_URL",
-		"./envault cat KEY",
-		"/usr/local/bin/envault cat KEY",
-		"envault export",
-		"./envault export",
+		"cifra cat DB_URL",
+		"./cifra cat KEY",
+		"/usr/local/bin/cifra cat KEY",
+		"cifra export",
+		"./cifra export",
 	}
 	notSensitive := []string{
-		"envault cat DB_URL --force",
-		"envault list",
-		"envault run -- npm start",
+		"cifra cat DB_URL --force",
+		"cifra list",
+		"cifra run -- npm start",
 		"npm install",
-		"echo envault cat",   // envault is not a command here
-		"envault add DB_URL", // not cat/export
+		"echo cifra cat",   // cifra is not a command here
+		"cifra add DB_URL", // not cat/export
 	}
 
 	for _, cmd := range sensitive {
-		if !IsSensitiveEnvaultCmd(cmd) {
+		if !IsSensitiveCifraCmd(cmd) {
 			t.Errorf("expected %q to be sensitive, got false", cmd)
 		}
 	}
 	for _, cmd := range notSensitive {
-		if IsSensitiveEnvaultCmd(cmd) {
+		if IsSensitiveCifraCmd(cmd) {
 			t.Errorf("expected %q to NOT be sensitive, got true", cmd)
 		}
 	}
 }
 
-// ---- IsSensitiveEnvaultWriteCmd --------------------------------------------
+// ---- IsSensitiveCifraWriteCmd --------------------------------------------
 
-func TestIsSensitiveEnvaultWriteCmd(t *testing.T) {
+func TestIsSensitiveCifraWriteCmd(t *testing.T) {
 	sensitive := []string{
-		`echo "sk-live-123" | envault add API_KEY`,
-		"./envault add DB_URL",
-		"envault set DB_URL <<< value",
-		"/usr/local/bin/envault add KEY",
+		`echo "sk-live-123" | cifra add API_KEY`,
+		"./cifra add DB_URL",
+		"cifra set DB_URL <<< value",
+		"/usr/local/bin/cifra add KEY",
 	}
 	notSensitive := []string{
-		`echo "sk-live-123" | envault add API_KEY --force`,
-		"envault cat DB_URL", // read, not write — handled by IsSensitiveEnvaultCmd
-		"envault list",
-		"envault run -- npm start",
+		`echo "sk-live-123" | cifra add API_KEY --force`,
+		"cifra cat DB_URL", // read, not write — handled by IsSensitiveCifraCmd
+		"cifra list",
+		"cifra run -- npm start",
 		"npm install",
-		"echo envault add", // envault is not a command here
+		"echo cifra add", // cifra is not a command here
 	}
 
 	for _, cmd := range sensitive {
-		if !IsSensitiveEnvaultWriteCmd(cmd) {
+		if !IsSensitiveCifraWriteCmd(cmd) {
 			t.Errorf("expected %q to be a sensitive write, got false", cmd)
 		}
 	}
 	for _, cmd := range notSensitive {
-		if IsSensitiveEnvaultWriteCmd(cmd) {
+		if IsSensitiveCifraWriteCmd(cmd) {
 			t.Errorf("expected %q to NOT be a sensitive write, got true", cmd)
 		}
 	}
 }
 
-func TestRunHookPreuse_BlocksEnvaultAddSet(t *testing.T) {
+func TestRunHookPreuse_BlocksCifraAddSet(t *testing.T) {
 	dir := t.TempDir()
-	_ = os.MkdirAll(filepath.Join(dir, ".envault"), 0o700)
+	_ = os.MkdirAll(filepath.Join(dir, ".cifra"), 0o700)
 
 	origWd, _ := os.Getwd()
 	_ = os.Chdir(dir)
 	t.Cleanup(func() { _ = os.Chdir(origWd) })
 
 	for _, cmd := range []string{
-		`echo "sk-live-123" | envault add API_KEY`,
-		"envault set DB_URL <<< newvalue",
+		`echo "sk-live-123" | cifra add API_KEY`,
+		"cifra set DB_URL <<< newvalue",
 	} {
 		input := map[string]interface{}{
 			"tool_name":  "Bash",
@@ -240,7 +240,7 @@ func TestRunHookPreuse_BlocksEnvaultAddSet(t *testing.T) {
 
 func TestRunHookPreuse_AllowsAddWithForce(t *testing.T) {
 	dir := t.TempDir()
-	_ = os.MkdirAll(filepath.Join(dir, ".envault"), 0o700)
+	_ = os.MkdirAll(filepath.Join(dir, ".cifra"), 0o700)
 
 	origWd, _ := os.Getwd()
 	_ = os.Chdir(dir)
@@ -248,7 +248,7 @@ func TestRunHookPreuse_AllowsAddWithForce(t *testing.T) {
 
 	input := map[string]interface{}{
 		"tool_name":  "Bash",
-		"tool_input": map[string]interface{}{"command": `echo "val" | envault add KEY --force`},
+		"tool_input": map[string]interface{}{"command": `echo "val" | cifra add KEY --force`},
 	}
 	b, _ := json.Marshal(input)
 	var w bytes.Buffer

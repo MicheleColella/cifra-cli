@@ -1,4 +1,4 @@
-module github.com/MicheleColella/envault-cli
+module github.com/MicheleColella/cifra-cli
 
 go 1.25.0
 

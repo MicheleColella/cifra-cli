@@ -87,7 +87,7 @@ func TestInstallGitHook_AppendsToExistingHook(t *testing.T) {
 		t.Error("existing hook content was removed")
 	}
 	if !strings.Contains(s, hookBeginMarker) {
-		t.Error("envault block not appended")
+		t.Error("cifra block not appended")
 	}
 	// Existing shebang should appear only once.
 	if strings.Count(s, "#!/bin/sh") != 1 {
@@ -138,7 +138,7 @@ func TestUninstallGitHook_DeletesFileWhenCreatedByUs(t *testing.T) {
 	}
 
 	if _, err := os.Stat(hookPath(dir)); !os.IsNotExist(err) {
-		t.Error("expected hook file to be deleted (was created entirely by envault)")
+		t.Error("expected hook file to be deleted (was created entirely by cifra)")
 	}
 }
 
@@ -169,7 +169,7 @@ func TestUninstallGitHook_PreservesExistingContent(t *testing.T) {
 		t.Error("existing content was removed on uninstall")
 	}
 	if strings.Contains(s, hookBeginMarker) {
-		t.Error("envault block still present after uninstall")
+		t.Error("cifra block still present after uninstall")
 	}
 }
 
@@ -229,7 +229,7 @@ func TestInstallGitHook_RespectsCoreHooksPathRelative(t *testing.T) {
 		t.Fatalf("expected hook at custom core.hooksPath location: %v", err)
 	}
 	if !strings.Contains(string(content), hookBeginMarker) {
-		t.Error("hook at custom path missing envault block")
+		t.Error("hook at custom path missing cifra block")
 	}
 
 	// The default .git/hooks/pre-commit must NOT have been touched.
@@ -255,15 +255,15 @@ func TestInstallGitHook_RespectsCoreHooksPathAbsolute(t *testing.T) {
 		t.Fatalf("expected hook at absolute core.hooksPath location: %v", err)
 	}
 	if !strings.Contains(string(content), hookBeginMarker) {
-		t.Error("hook at absolute custom path missing envault block")
+		t.Error("hook at absolute custom path missing cifra block")
 	}
 }
 
-// ---- stripEnvaultBlock ----
+// ---- stripCifraBlock ----
 
-func TestStripEnvaultBlock_RemovesBlockAndSeparator(t *testing.T) {
-	content := "#!/bin/sh\nexisting\n\n" + envaultBlock
-	result := stripEnvaultBlock(content)
+func TestStripCifraBlock_RemovesBlockAndSeparator(t *testing.T) {
+	content := "#!/bin/sh\nexisting\n\n" + cifraBlock
+	result := stripCifraBlock(content)
 
 	if strings.Contains(result, hookBeginMarker) {
 		t.Error("begin marker still present after strip")
@@ -280,9 +280,9 @@ func TestStripEnvaultBlock_RemovesBlockAndSeparator(t *testing.T) {
 	}
 }
 
-func TestStripEnvaultBlock_EmptyWhenOnlyBlock(t *testing.T) {
-	content := "#!/bin/sh\n" + envaultBlock
-	result := stripEnvaultBlock(content)
+func TestStripCifraBlock_EmptyWhenOnlyBlock(t *testing.T) {
+	content := "#!/bin/sh\n" + cifraBlock
+	result := stripCifraBlock(content)
 	if strings.TrimSpace(result) != "#!/bin/sh" {
 		t.Errorf("expected only shebang after strip, got %q", result)
 	}
@@ -294,7 +294,7 @@ func TestInstallGitHook_UpgradesV1Block(t *testing.T) {
 	dir := gitInitDir(t)
 
 	// Simulate a v1 block (no version marker) already installed.
-	v1Block := hookBeginMarker + "\n# Envault: old v1 script\n" + hookEndMarker + "\n"
+	v1Block := hookBeginMarker + "\n# Cifra: old v1 script\n" + hookEndMarker + "\n"
 	v1Content := "#!/bin/sh\n" + v1Block
 	if err := os.MkdirAll(filepath.Join(dir, ".git", "hooks"), 0o750); err != nil {
 		t.Fatal(err)
@@ -316,7 +316,7 @@ func TestInstallGitHook_UpgradesV1Block(t *testing.T) {
 	if strings.Contains(s, "old v1 script") {
 		t.Error("v1 script body should have been replaced")
 	}
-	// Only one envault block should be present.
+	// Only one cifra block should be present.
 	if strings.Count(s, hookBeginMarker) != 1 {
 		t.Errorf("expected 1 begin marker after upgrade, got %d", strings.Count(s, hookBeginMarker))
 	}

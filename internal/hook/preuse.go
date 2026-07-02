@@ -7,14 +7,14 @@ import (
 	"os"
 	"strings"
 
-	"github.com/MicheleColella/envault-cli/internal/audit"
-	"github.com/MicheleColella/envault-cli/internal/protect"
+	"github.com/MicheleColella/cifra-cli/internal/audit"
+	"github.com/MicheleColella/cifra-cli/internal/protect"
 )
 
 // ErrBlockToolCall is returned by RunHookPreuse when the tool call must be
 // blocked. The caller must exit non-zero so Claude Code denies the tool call —
 // any text already written to the output writer is shown to Claude as the reason.
-var ErrBlockToolCall = fmt.Errorf("tool call blocked by envault hook")
+var ErrBlockToolCall = fmt.Errorf("tool call blocked by cifra hook")
 
 // PreuseInput is the subset of the Claude Code PreToolUse hook JSON we care about.
 type PreuseInput struct {
@@ -38,9 +38,9 @@ var filePathTools = map[string]string{
 //  1. Read/Write/Edit/NotebookEdit tools whose file_path matches a protected pattern.
 //  2. Bash commands that reference a protected path (best-effort heuristic; full
 //     adversarial coverage is in v0.8.4).
-//  3. Bash commands that invoke `envault cat` or `envault export` without --force.
+//  3. Bash commands that invoke `cifra cat` or `cifra export` without --force.
 //
-// Each blocked call is appended to the audit log (.envault/ai-secure.log).
+// Each blocked call is appended to the audit log (.cifra/ai-secure.log).
 // Returns ErrBlockToolCall when a call is denied; nil otherwise.
 func RunHookPreuse(r io.Reader, w io.Writer) error {
 	var input PreuseInput
@@ -49,7 +49,7 @@ func RunHookPreuse(r io.Reader, w io.Writer) error {
 	}
 
 	wd, err := os.Getwd()
-	if err != nil || !IsEnvaultDir(wd) {
+	if err != nil || !IsCifraDir(wd) {
 		return nil
 	}
 
@@ -62,7 +62,7 @@ func RunHookPreuse(r io.Reader, w io.Writer) error {
 			if matched, ok := protect.MatchesAny(filePath, patterns); ok {
 				_ = audit.AppendEntry(wd, input.ToolName, audit.ActionBlockedPath, filePath, matched)
 				_, _ = fmt.Fprintf(w,
-					"[ENVAULT PROTECTED: %s — file contents encrypted. Use `envault run` to access at runtime.]\n"+
+					"[CIFRA PROTECTED: %s — file contents encrypted. Use `cifra run` to access at runtime.]\n"+
 						"Pattern: %s",
 					filePath, matched,
 				)
@@ -87,7 +87,7 @@ func RunHookPreuse(r io.Reader, w io.Writer) error {
 		if matched, tok, ok := protect.ContainsProtectedPath(cmd, patterns); ok {
 			_ = audit.AppendEntry(wd, "Bash", audit.ActionBlockedCmd, snippetOf(cmd, 120), matched)
 			_, _ = fmt.Fprintf(w,
-				"[ENVAULT PROTECTED: %s — path matches protected pattern %q. Use `envault run` to access at runtime.]\n"+
+				"[CIFRA PROTECTED: %s — path matches protected pattern %q. Use `cifra run` to access at runtime.]\n"+
 					"Blocked command: %s",
 				tok, matched, snippetOf(cmd, 200),
 			)
@@ -95,25 +95,25 @@ func RunHookPreuse(r io.Reader, w io.Writer) error {
 		}
 	}
 
-	// envault cat / export without --force.
-	if IsSensitiveEnvaultCmd(cmd) {
+	// cifra cat / export without --force.
+	if IsSensitiveCifraCmd(cmd) {
 		_, _ = fmt.Fprintln(w,
-			"envault: plaintext output blocked — secrets must not appear in the model context.\n"+
-				"Use `envault run -- <cmd>` to inject secrets in-memory into a child process.\n"+
+			"cifra: plaintext output blocked — secrets must not appear in the model context.\n"+
+				"Use `cifra run -- <cmd>` to inject secrets in-memory into a child process.\n"+
 				"If you really need the plaintext value, pass --force to override.",
 		)
 		return ErrBlockToolCall
 	}
 
-	// envault add / set without --force: sealing a new value this way
+	// cifra add / set without --force: sealing a new value this way
 	// requires the plaintext to already be embedded in the Bash command
 	// (there is no interactive stdin over a tool call), which is exactly
 	// the exposure this hook exists to prevent.
-	if IsSensitiveEnvaultWriteCmd(cmd) {
+	if IsSensitiveCifraWriteCmd(cmd) {
 		_, _ = fmt.Fprintln(w,
-			"envault: sealing a secret via Bash is blocked — the plaintext would have to be\n"+
+			"cifra: sealing a secret via Bash is blocked — the plaintext would have to be\n"+
 				"embedded in this command, putting it in the model's context. Ask the user to\n"+
-				"run `envault add <KEY>` / `envault set <KEY>` themselves in their own terminal.\n"+
+				"run `cifra add <KEY>` / `cifra set <KEY>` themselves in their own terminal.\n"+
 				"If you really need to do this here anyway, pass --force to override.",
 		)
 		return ErrBlockToolCall
@@ -122,27 +122,27 @@ func RunHookPreuse(r io.Reader, w io.Writer) error {
 	return nil
 }
 
-// IsSensitiveEnvaultCmd reports whether cmd invokes `envault cat` or
-// `envault export` as the primary command (not as an argument to another tool)
+// IsSensitiveCifraCmd reports whether cmd invokes `cifra cat` or
+// `cifra export` as the primary command (not as an argument to another tool)
 // without the --force override flag.
-func IsSensitiveEnvaultCmd(cmd string) bool {
-	return envaultSubcommandIs(cmd, "cat", "export")
+func IsSensitiveCifraCmd(cmd string) bool {
+	return cifraSubcommandIs(cmd, "cat", "export")
 }
 
-// IsSensitiveEnvaultWriteCmd reports whether cmd invokes `envault add` or
-// `envault set` as the primary command without the --force override flag.
+// IsSensitiveCifraWriteCmd reports whether cmd invokes `cifra add` or
+// `cifra set` as the primary command without the --force override flag.
 // Unlike a plain read, sealing a value this way requires the plaintext to
 // already be embedded in the command text (no interactive stdin over a tool
 // call), so it is blocked the same way as a direct plaintext read.
-func IsSensitiveEnvaultWriteCmd(cmd string) bool {
-	return envaultSubcommandIs(cmd, "add", "set")
+func IsSensitiveCifraWriteCmd(cmd string) bool {
+	return cifraSubcommandIs(cmd, "add", "set")
 }
 
-// envaultSubcommandIs reports whether cmd invokes envault with one of subs as
+// cifraSubcommandIs reports whether cmd invokes cifra with one of subs as
 // its subcommand, as either the whole command or any stage of a pipeline
-// (e.g. `echo value | envault add KEY` — the realistic way to feed a value
+// (e.g. `echo value | cifra add KEY` — the realistic way to feed a value
 // non-interactively), without an explicit --force override anywhere in cmd.
-func envaultSubcommandIs(cmd string, subs ...string) bool {
+func cifraSubcommandIs(cmd string, subs ...string) bool {
 	for _, flag := range strings.Fields(cmd) {
 		if flag == "--force" {
 			return false
@@ -152,7 +152,7 @@ func envaultSubcommandIs(cmd string, subs ...string) bool {
 	for _, segment := range strings.Split(cmd, "|") {
 		fields := strings.Fields(segment)
 
-		// Skip leading VAR=value environment assignments (e.g. CLAUDE_CODE=1 envault …)
+		// Skip leading VAR=value environment assignments (e.g. CLAUDE_CODE=1 cifra …)
 		start := 0
 		for start < len(fields) && strings.ContainsRune(fields[start], '=') {
 			start++
@@ -162,7 +162,7 @@ func envaultSubcommandIs(cmd string, subs ...string) bool {
 		}
 
 		first := fields[start]
-		if first != "envault" && !strings.HasSuffix(first, "/envault") {
+		if first != "cifra" && !strings.HasSuffix(first, "/cifra") {
 			continue
 		}
 		if start+1 >= len(fields) {
@@ -178,9 +178,9 @@ func envaultSubcommandIs(cmd string, subs ...string) bool {
 	return false
 }
 
-// IsEnvaultDir returns true when .envault/ exists under root.
-func IsEnvaultDir(root string) bool {
-	_, err := os.Stat(root + "/.envault")
+// IsCifraDir returns true when .cifra/ exists under root.
+func IsCifraDir(root string) bool {
+	_, err := os.Stat(root + "/.cifra")
 	return err == nil
 }
 

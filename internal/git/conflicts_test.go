@@ -44,7 +44,7 @@ func makeDivergedMergeConflict(t *testing.T) (repoB string, conflictPath string)
 	// ConflictedFiles/git status to confirm the conflicted state below.
 	_ = gitRun(repoB, "merge", "--no-edit", "origin/"+branch)
 
-	return repoB, ".envault/secrets.enc"
+	return repoB, ".cifra/secrets.enc"
 }
 
 func TestConflictedFiles_ReportsConflict(t *testing.T) {
@@ -181,7 +181,7 @@ func TestAbortMerge_RestoresPreMergeState(t *testing.T) {
 		t.Fatalf("expected no conflicts after abort, got %v", files)
 	}
 
-	content, err := os.ReadFile(filepath.Join(repo, ".envault", "secrets.enc"))
+	content, err := os.ReadFile(filepath.Join(repo, ".cifra", "secrets.enc"))
 	if err != nil {
 		t.Fatalf("read secrets.enc after abort: %v", err)
 	}

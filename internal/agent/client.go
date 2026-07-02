@@ -39,10 +39,10 @@ const (
 // relocating where the OS keychain looks for its login keychain (which is
 // itself derived from $HOME on macOS — overriding HOME to isolate the agent
 // breaks `security` in the same process).
-const socketPathEnv = "ENVAULT_AGENT_SOCKET"
+const socketPathEnv = "CIFRA_AGENT_SOCKET"
 
 // SocketPath returns the fixed, per-user location of the agent socket:
-// ~/.envault/agent.sock (or $ENVAULT_AGENT_SOCKET, if set). Not per-project
+// ~/.cifra/agent.sock (or $CIFRA_AGENT_SOCKET, if set). Not per-project
 // — one agent serves every vault on the machine, the same way ssh-agent
 // serves every repo.
 func SocketPath() (string, error) {
@@ -53,7 +53,7 @@ func SocketPath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve home directory: %w", err)
 	}
-	return filepath.Join(home, ".envault", "agent.sock"), nil
+	return filepath.Join(home, ".cifra", "agent.sock"), nil
 }
 
 func dial() (net.Conn, error) {
@@ -180,7 +180,7 @@ func IsRunning() bool {
 	return true
 }
 
-// EnsureRunning starts a detached `envault agent serve-internal` process if
+// EnsureRunning starts a detached `cifra agent serve-internal` process if
 // none is already reachable, then waits (briefly) for it to start accepting
 // connections. The spawned process is session-detached (no controlling
 // terminal) so it outlives the caller and its terminal.
@@ -191,7 +191,7 @@ func EnsureRunning() error {
 
 	exe, err := os.Executable()
 	if err != nil {
-		return fmt.Errorf("resolve envault binary path: %w", err)
+		return fmt.Errorf("resolve cifra binary path: %w", err)
 	}
 
 	cmd := exec.Command(exe, "agent", "serve-internal") //nolint:gosec // fixed subcommand, no user input

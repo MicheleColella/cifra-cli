@@ -19,7 +19,7 @@ func New() (Store, error) {
 	return &linuxStore{}, nil
 }
 
-// Seal stores privateKey in the user's kernel keyring under "envault:<id>".
+// Seal stores privateKey in the user's kernel keyring under "cifra:<id>".
 // Returns ErrAlreadyExists if a key already exists for id.
 func (s *linuxStore) Seal(id string, privateKey []byte) error {
 	if err := validateID(id); err != nil {
@@ -92,5 +92,5 @@ func (s *linuxStore) exists(id string) bool {
 }
 
 func keyName(id string) string {
-	return "envault:" + id
+	return "cifra:" + id
 }

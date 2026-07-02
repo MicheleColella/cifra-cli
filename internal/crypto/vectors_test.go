@@ -143,8 +143,8 @@ func TestEnvelopeAD_Format(t *testing.T) {
 		suite   CipherSuite
 		want    string
 	}{
-		{1, AES256GCM, "envault|v1|aes-256-gcm"},
-		{1, ChaCha20Poly1305, "envault|v1|chacha20-poly1305"},
+		{1, AES256GCM, "cifra|v1|aes-256-gcm"},
+		{1, ChaCha20Poly1305, "cifra|v1|chacha20-poly1305"},
 	}
 	for _, c := range cases {
 		got := string(envelopeAD(c.version, c.suite))

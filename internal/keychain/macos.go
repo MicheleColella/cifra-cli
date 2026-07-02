@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-const service = "envault"
+const service = "cifra"
 
 type macOSStore struct{}
 

@@ -220,7 +220,7 @@ func isIgnored(path string, patterns []string) bool {
 }
 
 // ScanDiff scans a unified diff (e.g. from `git diff --cached -U0`) for secrets.
-// ignoredFiles contains gitignore-style glob patterns from .envaultignore.
+// ignoredFiles contains gitignore-style glob patterns from .cifraignore.
 func ScanDiff(diff string, rules []Rule, ignoredFiles []string) []Match {
 	var (
 		matches     []Match
@@ -301,10 +301,10 @@ func ScanFiles(repoRoot string, rules []Rule, ignoredFiles []string) ([]Match, e
 	return matches, nil
 }
 
-// LoadIgnorePatterns reads .envaultignore from repoRoot and returns the glob
+// LoadIgnorePatterns reads .cifraignore from repoRoot and returns the glob
 // patterns. Returns nil (not an error) when the file does not exist.
 func LoadIgnorePatterns(repoRoot string) ([]string, error) {
-	path := filepath.Join(repoRoot, ".envaultignore")
+	path := filepath.Join(repoRoot, ".cifraignore")
 	f, err := os.Open(path) //nolint:gosec
 	if os.IsNotExist(err) {
 		return nil, nil

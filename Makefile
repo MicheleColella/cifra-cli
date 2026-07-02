@@ -1,4 +1,4 @@
-BINARY  := envault
+BINARY  := cifra
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS := -ldflags "-s -w -X main.version=$(VERSION)"
 PREFIX  ?= /usr/local/bin
@@ -6,7 +6,7 @@ PREFIX  ?= /usr/local/bin
 .PHONY: build clean test lint vet install uninstall test-install
 
 build:
-	CGO_ENABLED=0 go build $(LDFLAGS) -buildvcs=false -o $(BINARY) ./cmd/envault
+	CGO_ENABLED=0 go build $(LDFLAGS) -buildvcs=false -o $(BINARY) ./cmd/cifra
 
 clean:
 	rm -f $(BINARY)

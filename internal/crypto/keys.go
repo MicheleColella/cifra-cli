@@ -65,8 +65,8 @@ func DerivePublicKey(priv PrivateKey) (PublicKey, error) {
 // recipientPub is bound into the info field to prevent cross-recipient key
 // substitution (the same ephemeral key cannot be repurposed for a different recipient).
 func deriveWrappingKey(sharedSecret, ephemeralPub, recipientPub []byte) ([]byte, error) {
-	info := make([]byte, 0, len("envault-v1-wrap")+len(recipientPub))
-	info = append(info, "envault-v1-wrap"...)
+	info := make([]byte, 0, len("cifra-v1-wrap")+len(recipientPub))
+	info = append(info, "cifra-v1-wrap"...)
 	info = append(info, recipientPub...)
 
 	r := hkdf.New(sha256.New, sharedSecret, ephemeralPub, info)

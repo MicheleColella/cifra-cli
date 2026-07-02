@@ -49,7 +49,7 @@ func seedRemote(t *testing.T, bareRemote string) {
 		t.Fatalf("seed user.name: %v", err)
 	}
 	readme := filepath.Join(seed, "README")
-	if err := os.WriteFile(readme, []byte("envault test repo\n"), 0o600); err != nil {
+	if err := os.WriteFile(readme, []byte("cifra test repo\n"), 0o600); err != nil {
 		t.Fatalf("write README: %v", err)
 	}
 	if err := gitRun(seed, "add", "README"); err != nil {
@@ -63,12 +63,12 @@ func seedRemote(t *testing.T, bareRemote string) {
 	}
 }
 
-// writeVaultFile creates a file inside <dir>/.envault/ with given content.
+// writeVaultFile creates a file inside <dir>/.cifra/ with given content.
 func writeVaultFile(t *testing.T, dir, name, content string) {
 	t.Helper()
-	vaultDir := filepath.Join(dir, ".envault")
+	vaultDir := filepath.Join(dir, ".cifra")
 	if err := os.MkdirAll(vaultDir, 0o700); err != nil {
-		t.Fatalf("mkdir .envault: %v", err)
+		t.Fatalf("mkdir .cifra: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(vaultDir, name), []byte(content), 0o600); err != nil {
 		t.Fatalf("write vault file: %v", err)
@@ -95,7 +95,7 @@ func TestCommitVault_CreatesCommit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("git log: %v", err)
 	}
-	if strings.TrimSpace(msg) != "envault: sync encrypted secrets" {
+	if strings.TrimSpace(msg) != "cifra: sync encrypted secrets" {
 		t.Errorf("unexpected commit message: %q", strings.TrimSpace(msg))
 	}
 }
@@ -139,7 +139,7 @@ func TestPushOrigin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("bare git log: %v", err)
 	}
-	if !strings.Contains(out, "envault: sync encrypted secrets") {
+	if !strings.Contains(out, "cifra: sync encrypted secrets") {
 		t.Errorf("commit not found in bare remote: %q", strings.TrimSpace(out))
 	}
 }
@@ -170,7 +170,7 @@ func TestFetchAndMergeOrigin(t *testing.T) {
 	}
 
 	// B should now have the file.
-	content, err := os.ReadFile(filepath.Join(repoB, ".envault", "secrets.enc"))
+	content, err := os.ReadFile(filepath.Join(repoB, ".cifra", "secrets.enc"))
 	if err != nil {
 		t.Fatalf("read secrets.enc in B: %v", err)
 	}
@@ -219,7 +219,7 @@ func TestIsVaultTracked_TrueAfterCommitAndPush(t *testing.T) {
 	}
 
 	if !IsVaultTracked(repo) {
-		t.Error("expected .envault/config to be tracked after commit")
+		t.Error("expected .cifra/config to be tracked after commit")
 	}
 }
 
@@ -232,7 +232,7 @@ func TestIsVaultTracked_FalseWhenUntracked(t *testing.T) {
 	// Never committed — still untracked.
 
 	if IsVaultTracked(repo) {
-		t.Error("expected .envault/config to be untracked before any commit")
+		t.Error("expected .cifra/config to be untracked before any commit")
 	}
 }
 
@@ -242,7 +242,7 @@ func TestCleanVault_RemovesUntrackedFiles(t *testing.T) {
 	repo := cloneRepo(t, bare)
 
 	writeVaultFile(t, repo, "secrets.enc", `{"version":1,"entries":[]}`)
-	untracked := filepath.Join(repo, ".envault", "secrets.enc")
+	untracked := filepath.Join(repo, ".cifra", "secrets.enc")
 	if _, err := os.Stat(untracked); err != nil {
 		t.Fatalf("expected untracked file to exist before clean: %v", err)
 	}
@@ -269,7 +269,7 @@ func TestCleanVault_LeavesCommittedFilesIntact(t *testing.T) {
 		t.Fatalf("CleanVault: %v", err)
 	}
 
-	committed := filepath.Join(repo, ".envault", "config")
+	committed := filepath.Join(repo, ".cifra", "config")
 	if _, err := os.Stat(committed); err != nil {
 		t.Fatalf("expected committed vault file to survive CleanVault: %v", err)
 	}
@@ -296,7 +296,7 @@ func TestMergeOrigin_FastForward(t *testing.T) {
 		t.Fatalf("MergeOrigin: %v", err)
 	}
 
-	content, err := os.ReadFile(filepath.Join(repoB, ".envault", "secrets.enc"))
+	content, err := os.ReadFile(filepath.Join(repoB, ".cifra", "secrets.enc"))
 	if err != nil {
 		t.Fatalf("read secrets.enc after merge: %v", err)
 	}

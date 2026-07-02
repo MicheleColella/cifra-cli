@@ -8,13 +8,13 @@ import (
 	"strings"
 )
 
-// PrivatePathsFile is the filename inside .envault/ that stores registered patterns.
+// PrivatePathsFile is the filename inside .cifra/ that stores registered patterns.
 const PrivatePathsFile = "private-paths"
 
 // ErrPatternNotFound is returned when RemovePattern cannot find the target.
 var ErrPatternNotFound = fmt.Errorf("pattern not found in private-paths")
 
-// AddPattern registers pattern in .envault/private-paths. Idempotent.
+// AddPattern registers pattern in .cifra/private-paths. Idempotent.
 func AddPattern(repoRoot, pattern string) error {
 	patterns, err := LoadPatterns(repoRoot)
 	if err != nil {
@@ -28,7 +28,7 @@ func AddPattern(repoRoot, pattern string) error {
 	return savePatterns(repoRoot, append(patterns, pattern))
 }
 
-// RemovePattern deletes pattern from .envault/private-paths.
+// RemovePattern deletes pattern from .cifra/private-paths.
 // Returns ErrPatternNotFound if the pattern is not registered.
 func RemovePattern(repoRoot, pattern string) error {
 	patterns, err := LoadPatterns(repoRoot)
@@ -47,7 +47,7 @@ func RemovePattern(repoRoot, pattern string) error {
 	return savePatterns(repoRoot, filtered)
 }
 
-// LoadPatterns reads .envault/private-paths and returns the list of patterns.
+// LoadPatterns reads .cifra/private-paths and returns the list of patterns.
 // Returns an empty slice (not an error) when the file does not exist.
 func LoadPatterns(repoRoot string) ([]string, error) {
 	f, err := os.Open(patternsPath(repoRoot))
@@ -126,7 +126,7 @@ func savePatterns(repoRoot string, patterns []string) error {
 }
 
 func patternsPath(repoRoot string) string {
-	return filepath.Join(repoRoot, ".envault", PrivatePathsFile)
+	return filepath.Join(repoRoot, ".cifra", PrivatePathsFile)
 }
 
 // tokenize splits text into path-like fragments by splitting on whitespace and

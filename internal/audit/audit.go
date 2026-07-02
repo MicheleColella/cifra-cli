@@ -31,7 +31,7 @@ type Entry struct {
 	Hash    string `json:"hash"`    // SHA256 of this entry (fields above, not hash itself)
 }
 
-// AppendEntry appends a new signed entry to .envault/ai-secure.log.
+// AppendEntry appends a new signed entry to .cifra/ai-secure.log.
 // The entry's hash chains from the last entry in the log.
 func AppendEntry(repoRoot, tool, action, target, pattern string) error {
 	path := logPath(repoRoot)
@@ -66,7 +66,7 @@ func AppendEntry(repoRoot, tool, action, target, pattern string) error {
 	return err
 }
 
-// LoadEntries reads and parses all entries from .envault/ai-secure.log.
+// LoadEntries reads and parses all entries from .cifra/ai-secure.log.
 // Returns nil (not an error) when the log does not exist.
 func LoadEntries(repoRoot string) ([]Entry, error) {
 	b, err := os.ReadFile(logPath(repoRoot))
@@ -143,5 +143,5 @@ func lastHash(path string) (string, error) {
 }
 
 func logPath(repoRoot string) string {
-	return filepath.Join(repoRoot, ".envault", logFile)
+	return filepath.Join(repoRoot, ".cifra", logFile)
 }

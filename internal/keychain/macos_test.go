@@ -22,7 +22,7 @@ func fakeSecurityBinary(t *testing.T) {
 	script := `#!/bin/sh
 # Minimal stand-in for macOS security(1) generic-password subcommands, backed
 # by files in STOREDIR instead of the real keychain. Args parsed positionally
-# since envault always calls with a fixed flag order.
+# since cifra always calls with a fixed flag order.
 cmd="$1"; shift
 svc=""; acct=""; pw=""
 while [ $# -gt 0 ]; do

@@ -1,5 +1,5 @@
 // Package mcp implements a minimal Model Context Protocol server: JSON-RPC 2.0
-// framed as one message per line over stdio. It knows nothing about Envault —
+// framed as one message per line over stdio. It knows nothing about Cifra —
 // callers register Tools whose handlers do the real work.
 package mcp
 
@@ -158,7 +158,7 @@ func toolResult(text string, isError bool) map[string]interface{} {
 }
 
 // PrintSchemas writes the JSON Schema of every registered tool to w, pretty
-// printed as a single JSON array. Used by `envault mcp serve --dry-run` for
+// printed as a single JSON array. Used by `cifra mcp serve --dry-run` for
 // debugging and for generating the plugin manifest's tool documentation.
 func (s *Server) PrintSchemas(w io.Writer) error {
 	b, err := json.MarshalIndent(s.toolDescriptors(), "", "  ")

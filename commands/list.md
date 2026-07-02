@@ -1,5 +1,5 @@
 ---
-description: List all sealed Envault entries (names only, no decryption)
+description: List all sealed Cifra entries (names only, no decryption)
 ---
 
-Run `envault list` and show the sealed entry names. Never run `envault cat` or `envault export` — those expose plaintext.
+Run `cifra list` and show the sealed entry names. Never run `cifra cat` or `cifra export` — those expose plaintext.

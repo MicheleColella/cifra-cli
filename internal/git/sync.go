@@ -8,27 +8,27 @@ import (
 	"strings"
 )
 
-// ErrNothingToCommit is returned by CommitVault when .envault/ has no
+// ErrNothingToCommit is returned by CommitVault when .cifra/ has no
 // staged changes — the vault is already in sync with the last commit.
 var ErrNothingToCommit = errors.New("nothing to commit")
 
-// CommitVault stages all .envault/ files and creates a commit with the
-// canonical message "envault: sync encrypted secrets". It returns the
+// CommitVault stages all .cifra/ files and creates a commit with the
+// canonical message "cifra: sync encrypted secrets". It returns the
 // short (7-char) commit hash. If there are no changes it returns
 // ErrNothingToCommit so the caller can still push unpushed commits.
 func CommitVault(repoRoot string) (string, error) {
-	if err := gitRun(repoRoot, "add", ".envault/"); err != nil {
+	if err := gitRun(repoRoot, "add", ".cifra/"); err != nil {
 		return "", fmt.Errorf("stage vault: %w", err)
 	}
 
 	// exit 0 = no staged diff = nothing to commit
-	chk := exec.Command("git", "diff", "--cached", "--quiet", ".envault/")
+	chk := exec.Command("git", "diff", "--cached", "--quiet", ".cifra/")
 	chk.Dir = repoRoot
 	if err := chk.Run(); err == nil {
 		return "", ErrNothingToCommit
 	}
 
-	if err := gitRun(repoRoot, "commit", "-m", "envault: sync encrypted secrets"); err != nil {
+	if err := gitRun(repoRoot, "commit", "-m", "cifra: sync encrypted secrets"); err != nil {
 		return "", fmt.Errorf("commit vault: %w", err)
 	}
 
@@ -64,20 +64,20 @@ func FetchOrigin(repoRoot string) error {
 	return nil
 }
 
-// IsVaultTracked reports whether .envault/config is known to git (i.e., the
+// IsVaultTracked reports whether .cifra/config is known to git (i.e., the
 // vault was cloned from a remote rather than only created locally). When this
 // returns false the vault files are untracked and were never committed.
 func IsVaultTracked(repoRoot string) bool {
-	cmd := exec.Command("git", "ls-files", "--error-unmatch", ".envault/config")
+	cmd := exec.Command("git", "ls-files", "--error-unmatch", ".cifra/config")
 	cmd.Dir = repoRoot
 	return cmd.Run() == nil
 }
 
-// CleanVault removes untracked files under .envault/ so a fast-forward merge
+// CleanVault removes untracked files under .cifra/ so a fast-forward merge
 // is not blocked by "untracked working tree files would be overwritten".
 // Files already committed to git are left untouched.
 func CleanVault(repoRoot string) error {
-	if err := gitRun(repoRoot, "clean", "-fd", ".envault/"); err != nil {
+	if err := gitRun(repoRoot, "clean", "-fd", ".cifra/"); err != nil {
 		return fmt.Errorf("clean vault: %w", err)
 	}
 	return nil

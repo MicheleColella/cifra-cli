@@ -327,7 +327,7 @@ func TestLoadIgnorePatterns_ReturnsNilWhenNoFile(t *testing.T) {
 func TestLoadIgnorePatterns_ParsesPatternsAndSkipsComments(t *testing.T) {
 	dir := t.TempDir()
 	content := "# This is a comment\n\ntestdata/*\n*.example\n# another comment\nfixtures/\n"
-	if err := os.WriteFile(filepath.Join(dir, ".envaultignore"), []byte(content), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, ".cifraignore"), []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	patterns, err := LoadIgnorePatterns(dir)
@@ -379,7 +379,7 @@ func TestScanFiles_RespectsIgnoredFile(t *testing.T) {
 		t.Fatalf("ScanFiles: %v", err)
 	}
 	if findByRuleID(matches, "github-pat") != nil {
-		t.Error("github-pat match should be suppressed by .envaultignore")
+		t.Error("github-pat match should be suppressed by .cifraignore")
 	}
 }
 

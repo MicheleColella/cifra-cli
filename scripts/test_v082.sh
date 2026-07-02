@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Integration tests for v0.8.2 (AI Privacy Shield)
-# Usage: bash scripts/test_v082.sh [path/to/envault]
+# Usage: bash scripts/test_v082.sh [path/to/cifra]
 #
 # Tests: protect add/list/remove, audit log show/verify (with injected entries),
 #        error cases (missing vault, missing pattern).
@@ -9,7 +9,7 @@
 set -euo pipefail
 
 # ── configuration ────────────────────────────────────────────────────────────
-BINARY="$(cd "$(dirname "${1:-./envault}")" && pwd)/$(basename "${1:-./envault}")"
+BINARY="$(cd "$(dirname "${1:-./cifra}")" && pwd)/$(basename "${1:-./cifra}")"
 TEST_DIR="$(mktemp -d)"
 PASS=0
 FAIL=0
@@ -67,8 +67,8 @@ fi
 # Init a fresh git repo + vault (no key needed for protect/audit commands).
 cd "$TEST_DIR"
 git init -q
-git config user.email "test@envault.test"
-git config user.name  "Envault Test"
+git config user.email "test@cifra.test"
+git config user.name  "Cifra Test"
 "$BINARY" init >/dev/null 2>&1
 
 # ── protect add ───────────────────────────────────────────────────────────────
@@ -167,7 +167,7 @@ bold "--- audit log (with entries) ---"
 
 # Write two audit log entries directly to test show+verify without needing a
 # live Claude Code session. We use Go's JSON format matching audit.Entry.
-LOG_FILE=".envault/ai-secure.log"
+LOG_FILE=".cifra/ai-secure.log"
 
 # Entry 1 (prev = "")
 HASH1=$(printf '%s' "$(date -u +%Y-%m-%dT%H:%M:%SZ)|Read|blocked_path|config/secrets.json|config/secrets.json|" | shasum -a 256 | awk '{print $1}')

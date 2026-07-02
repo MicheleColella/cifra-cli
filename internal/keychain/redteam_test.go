@@ -40,7 +40,7 @@ func TestRedTeam_KeychainExtractionYieldsOnlyV2Ciphertext(t *testing.T) {
 }
 
 // TestRedTeam_NoDecryptionWithoutPassphrase simulates the binary running
-// headless (no TTY, no ENVAULT_PASSPHRASE) where PassphraseFunc itself fails —
+// headless (no TTY, no CIFRA_PASSPHRASE) where PassphraseFunc itself fails —
 // Unseal must propagate that failure and never return a key.
 func TestRedTeam_NoDecryptionWithoutPassphrase(t *testing.T) {
 	inner := newMemStore()
@@ -51,7 +51,7 @@ func TestRedTeam_NoDecryptionWithoutPassphrase(t *testing.T) {
 	}
 
 	noPassphrase := func(string) ([]byte, error) {
-		return nil, errors.New("no passphrase available: set ENVAULT_PASSPHRASE or run interactively")
+		return nil, errors.New("no passphrase available: set CIFRA_PASSPHRASE or run interactively")
 	}
 	store := NewProtected(inner, noPassphrase)
 

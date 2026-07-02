@@ -1,28 +1,28 @@
 #!/bin/sh
-# Envault one-line installer.
-#   curl -fsSL https://raw.githubusercontent.com/MicheleColella/envault-cli/main/scripts/install.sh | sh
+# Cifra one-line installer.
+#   curl -fsSL https://raw.githubusercontent.com/MicheleColella/cifra-cli/main/scripts/install.sh | sh
 #
 # Env overrides:
-#   ENVAULT_VERSION      tag to install (default: latest release)
-#   ENVAULT_INSTALL_DIR  target dir (default: /usr/local/bin, falls back to ~/.local/bin)
+#   CIFRA_VERSION      tag to install (default: latest release)
+#   CIFRA_INSTALL_DIR  target dir (default: /usr/local/bin, falls back to ~/.local/bin)
 set -eu
 
-REPO="MicheleColella/envault-cli"
-BINARY="envault"
+REPO="MicheleColella/cifra-cli"
+BINARY="cifra"
 
-err() { echo "envault-install: $*" >&2; exit 1; }
+err() { echo "cifra-install: $*" >&2; exit 1; }
 have() { command -v "$1" >/dev/null 2>&1; }
 
 if [ "${1:-}" = "--uninstall" ]; then
   removed=0
-  for d in "${ENVAULT_INSTALL_DIR:-}" /usr/local/bin "$HOME/.local/bin"; do
+  for d in "${CIFRA_INSTALL_DIR:-}" /usr/local/bin "$HOME/.local/bin"; do
     [ -n "$d" ] && [ -f "$d/$BINARY" ] || continue
     if [ -w "$d" ]; then rm -f "$d/$BINARY"; else sudo rm -f "$d/$BINARY"; fi
     echo "✓ removed $d/$BINARY"
     removed=1
   done
   [ "$removed" = 1 ] || echo "no $BINARY binary found in known install dirs"
-  echo "! per-repo hooks/keys: run 'envault uninstall [--keys] [--global]' in each repo first"
+  echo "! per-repo hooks/keys: run 'cifra uninstall [--keys] [--global]' in each repo first"
   exit 0
 fi
 
@@ -42,7 +42,7 @@ case "$arch" in
   *) err "unsupported arch: $arch" ;;
 esac
 
-version="${ENVAULT_VERSION:-latest}"
+version="${CIFRA_VERSION:-latest}"
 if [ "$version" = "latest" ]; then
   version=$(curl -fsSL "https://api.github.com/repos/$REPO/releases/latest" |
     grep '"tag_name":' | head -1 | sed -E 's/.*"([^"]+)".*/\1/')
@@ -68,9 +68,9 @@ if have sha256sum; then sumcmd="sha256sum"; else sumcmd="shasum -a 256"; fi
 tar -xzf "$tmp/$archive" -C "$tmp"
 [ -f "$tmp/$BINARY" ] || err "archive did not contain a '$BINARY' binary"
 
-dir="${ENVAULT_INSTALL_DIR:-/usr/local/bin}"
+dir="${CIFRA_INSTALL_DIR:-/usr/local/bin}"
 if [ ! -d "$dir" ] || [ ! -w "$dir" ]; then
-  if [ -z "${ENVAULT_INSTALL_DIR:-}" ]; then
+  if [ -z "${CIFRA_INSTALL_DIR:-}" ]; then
     dir="$HOME/.local/bin"   # fall back to a user-writable dir
     mkdir -p "$dir"
   fi

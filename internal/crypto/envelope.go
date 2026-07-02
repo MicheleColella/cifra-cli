@@ -7,7 +7,7 @@ import (
 
 	"golang.org/x/crypto/curve25519"
 
-	"github.com/MicheleColella/envault-cli/internal/secmem"
+	"github.com/MicheleColella/cifra-cli/internal/secmem"
 )
 
 // envelopeVersion is the only supported on-disk format revision.
@@ -144,7 +144,7 @@ func Rewrap(env *Envelope, privKey PrivateKey, recipients []PublicKey) (*Envelop
 // envelopeAD builds the authenticated-data string that binds the envelope
 // metadata to the payload ciphertext.
 func envelopeAD(version int, suite CipherSuite) []byte {
-	return []byte(fmt.Sprintf("envault|v%d|%s", version, suite))
+	return []byte(fmt.Sprintf("cifra|v%d|%s", version, suite))
 }
 
 // generateDEK returns a fresh random 32-byte data encryption key.

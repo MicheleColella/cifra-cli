@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/MicheleColella/envault-cli/internal/ui"
+	"github.com/MicheleColella/cifra-cli/internal/ui"
 )
 
 // memStore is a tiny in-memory Store used to inspect exactly what bytes the
@@ -198,7 +198,7 @@ func TestProtectedV2NoWarning(t *testing.T) {
 }
 
 // TestProtectedUnknownVersionErrors is the forward-compatibility guard: a key
-// envelope written by a NEWER envault (e.g. v3) must surface a clear "upgrade"
+// envelope written by a NEWER cifra (e.g. v3) must surface a clear "upgrade"
 // error, never be silently misread as a legacy raw key (which would corrupt the
 // key and warn with the wrong message).
 func TestProtectedUnknownVersionErrors(t *testing.T) {

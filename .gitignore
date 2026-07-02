@@ -3,7 +3,7 @@
 ._*
 
 # Go build artifacts
-/envault
+/cifra
 /dist/
 *.test
 *.out

@@ -10,8 +10,8 @@ import (
 
 	"golang.org/x/crypto/argon2"
 
-	"github.com/MicheleColella/envault-cli/internal/secmem"
-	"github.com/MicheleColella/envault-cli/internal/ui"
+	"github.com/MicheleColella/cifra-cli/internal/secmem"
+	"github.com/MicheleColella/cifra-cli/internal/ui"
 )
 
 // ErrBadPassphrase is returned when the supplied passphrase fails to decrypt the
@@ -20,10 +20,10 @@ import (
 var ErrBadPassphrase = errors.New("incorrect passphrase or corrupted key blob")
 
 // ErrUnsupportedKeyVersion is returned when the keychain holds a key envelope
-// written by a NEWER envault than this binary understands (e.g. a future v3
+// written by a NEWER cifra than this binary understands (e.g. a future v3
 // format), or a blob in no recognized format. Forward-compatibility guard: we
 // fail loudly and actionably rather than silently misreading the bytes as a key.
-var ErrUnsupportedKeyVersion = errors.New("private key was written by a newer envault version — upgrade envault to use it")
+var ErrUnsupportedKeyVersion = errors.New("private key was written by a newer cifra version — upgrade cifra to use it")
 
 // protectedVersion identifies the passphrase-wrapped blob format.
 const protectedVersion = 2
@@ -201,7 +201,7 @@ const (
 )
 
 // classifyKeyBlob determines how to interpret raw. It distinguishes three cases
-// so that a future on-disk format (e.g. v3) is reported as "upgrade envault"
+// so that a future on-disk format (e.g. v3) is reported as "upgrade cifra"
 // instead of being silently misread as a legacy raw key.
 func classifyKeyBlob(raw []byte) (protectedBlob, blobKind) {
 	// A legacy key is exactly 32 random bytes — treat by length first so a key
@@ -232,8 +232,8 @@ func classifyKeyBlob(raw []byte) (protectedBlob, blobKind) {
 func warnLegacyKey(id string) {
 	_, _ = fmt.Fprintf(ui.Err,
 		"! private key for %s is stored in the OLD unencrypted format and can be "+
-			"extracted by any local process — regenerate it (`envault key delete --id %s` "+
-			"then `envault key new --id %s`) to encrypt it at rest\n",
+			"extracted by any local process — regenerate it (`cifra key delete --id %s` "+
+			"then `cifra key new --id %s`) to encrypt it at rest\n",
 		id, id, id)
 }
 

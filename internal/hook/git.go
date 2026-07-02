@@ -9,40 +9,40 @@ import (
 	"strings"
 )
 
-// hookBeginMarker and hookEndMarker delimit the envault-managed block inside the
+// hookBeginMarker and hookEndMarker delimit the cifra-managed block inside the
 // pre-commit hook file. Only the lines between (and including) these markers are
 // touched on install or uninstall — any surrounding content is left intact.
 const (
-	hookBeginMarker = "# --- BEGIN envault pre-commit hook ---"
-	hookEndMarker   = "# --- END envault pre-commit hook ---"
+	hookBeginMarker = "# --- BEGIN cifra pre-commit hook ---"
+	hookEndMarker   = "# --- END cifra pre-commit hook ---"
 
 	// hookVersionMarker is embedded in the script body so InstallGitHook can
 	// detect and auto-upgrade outdated v1 blocks on reinstall.
-	hookVersionMarker = "# envault-hook-version: 2"
+	hookVersionMarker = "# cifra-hook-version: 2"
 )
 
-// hookScriptBody is the POSIX-sh script that runs inside the envault block.
-// It delegates to `envault scan --staged` when the binary is on PATH and falls
+// hookScriptBody is the POSIX-sh script that runs inside the cifra block.
+// It delegates to `cifra scan --staged` when the binary is on PATH and falls
 // back to minimal inline checks when it is not (e.g. fresh clone before install).
-const hookScriptBody = `# Envault: block commits that may contain plaintext secrets.
-# envault-hook-version: 2
-# Remove with: envault hook install --git --uninstall
+const hookScriptBody = `# Cifra: block commits that may contain plaintext secrets.
+# cifra-hook-version: 2
+# Remove with: cifra hook install --git --uninstall
 
-# Only run inside an envault-managed repo.
-if [ ! -d ".envault" ]; then
+# Only run inside an cifra-managed repo.
+if [ ! -d ".cifra" ]; then
   exit 0
 fi
 
-# Prefer the Go scanner: entropy + 12+ patterns + .envaultignore support.
-if command -v envault >/dev/null 2>&1; then
-  envault scan --staged
+# Prefer the Go scanner: entropy + 12+ patterns + .cifraignore support.
+if command -v cifra >/dev/null 2>&1; then
+  cifra scan --staged
   exit $?
 fi
 
-# Fallback: envault not on PATH — minimal inline checks.
-_envault_fail() {
-  printf '\033[0;31menvault:\033[0m %s\n' "$1" >&2
-  printf '  Seal it with: envault add <KEY>\n' >&2
+# Fallback: cifra not on PATH — minimal inline checks.
+_cifra_fail() {
+  printf '\033[0;31mcifra:\033[0m %s\n' "$1" >&2
+  printf '  Seal it with: cifra add <KEY>\n' >&2
   printf '  To bypass (not recommended): git commit --no-verify\n' >&2
   exit 1
 }
@@ -51,23 +51,23 @@ _staged=$(git diff --cached --name-only 2>/dev/null)
 _diff_adds=$(git diff --cached -U0 2>/dev/null | grep '^+' | grep -v '^+++' || true)
 
 if printf '%s\n' "$_staged" | grep -qE '(^|/)\.env(\.[a-zA-Z0-9]+)?$'; then
-  _envault_fail ".env file staged for commit — use envault to store secrets instead"
+  _cifra_fail ".env file staged for commit — use cifra to store secrets instead"
 fi
 if printf '%s\n' "$_diff_adds" | grep -qE '-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY'; then
-  _envault_fail "private key material detected in staged diff"
+  _cifra_fail "private key material detected in staged diff"
 fi
 if printf '%s\n' "$_diff_adds" | grep -qE '(ghp_[A-Za-z0-9]{36}|ghs_[A-Za-z0-9]{36}|AKIA[A-Z0-9]{16}|sk-[A-Za-z0-9_-]{32,})'; then
-  _envault_fail "known API token pattern detected in staged diff"
+  _cifra_fail "known API token pattern detected in staged diff"
 fi`
 
-// envaultBlock is the complete envault-managed section including both markers.
-var envaultBlock = hookBeginMarker + "\n" + hookScriptBody + "\n" + hookEndMarker + "\n"
+// cifraBlock is the complete cifra-managed section including both markers.
+var cifraBlock = hookBeginMarker + "\n" + hookScriptBody + "\n" + hookEndMarker + "\n"
 
-// InstallGitHook installs the Envault pre-commit hook in the Git repo at repoRoot.
+// InstallGitHook installs the Cifra pre-commit hook in the Git repo at repoRoot.
 //
 //   - If no pre-commit hook exists, a new one is created with a #!/bin/sh shebang.
-//   - If one exists, the Envault block is appended after the existing content.
-//   - If the Envault block is already present, the call is a no-op.
+//   - If one exists, the Cifra block is appended after the existing content.
+//   - If the Cifra block is already present, the call is a no-op.
 //
 // The resulting file is always made executable (0755).
 func InstallGitHook(repoRoot string) error {
@@ -96,20 +96,20 @@ func InstallGitHook(repoRoot string) error {
 			return nil // already at current version, no-op
 		}
 		// Outdated v1 block found — replace it with the current version.
-		content = stripEnvaultBlock(content)
+		content = stripCifraBlock(content)
 	}
 
 	var newContent string
 	if content == "" {
-		newContent = "#!/bin/sh\n" + envaultBlock
+		newContent = "#!/bin/sh\n" + cifraBlock
 	} else {
 		// Exactly one "\n" separates existing content from the block, whether
-		// or not content already ended in a newline — stripEnvaultBlock
+		// or not content already ended in a newline — stripCifraBlock
 		// reverses this unconditionally, which is what makes an
 		// install+uninstall cycle restore the original byte-for-byte in every
 		// case (already-terminated, not terminated, CRLF, or already ending
 		// in a blank line).
-		newContent = content + "\n" + envaultBlock
+		newContent = content + "\n" + cifraBlock
 	}
 
 	if err := os.WriteFile(hookPath, []byte(newContent), 0o755); err != nil { //nolint:gosec // hook scripts must be executable
@@ -118,7 +118,7 @@ func InstallGitHook(repoRoot string) error {
 	return nil
 }
 
-// UninstallGitHook removes the Envault block from the pre-commit hook at repoRoot.
+// UninstallGitHook removes the Cifra block from the pre-commit hook at repoRoot.
 // If the file would be empty (or contain only a shebang) after removal, it is
 // deleted to fully restore the prior state. Returns nil if the hook was not installed.
 func UninstallGitHook(repoRoot string) error {
@@ -137,7 +137,7 @@ func UninstallGitHook(repoRoot string) error {
 		return fmt.Errorf("read pre-commit hook: %w", err)
 	}
 
-	stripped := stripEnvaultBlock(string(data))
+	stripped := stripCifraBlock(string(data))
 
 	trimmed := strings.TrimSpace(stripped)
 	if trimmed == "" || trimmed == "#!/bin/sh" || trimmed == "#!/usr/bin/env sh" {
@@ -147,7 +147,7 @@ func UninstallGitHook(repoRoot string) error {
 	return os.WriteFile(hookPath, []byte(stripped), 0o755) //nolint:gosec // hook scripts must be executable
 }
 
-// IsGitHookInstalled reports whether the Envault block is present in the
+// IsGitHookInstalled reports whether the Cifra block is present in the
 // pre-commit hook for the Git repo at repoRoot.
 func IsGitHookInstalled(repoRoot string) bool {
 	hooksDir, err := resolveHooksDir(repoRoot)
@@ -176,7 +176,7 @@ func resolveHooksDir(repoRoot string) (string, error) {
 	return filepath.Join(repoRoot, ".git", "hooks"), nil
 }
 
-// stripEnvaultBlock removes the envault-managed block (BEGIN marker through END
+// stripCifraBlock removes the cifra-managed block (BEGIN marker through END
 // marker, inclusive) from content, plus the single "\n" separator
 // InstallGitHook always adds immediately before it (see InstallGitHook — it
 // adds exactly one "\n" whether or not content already ended in a newline,
@@ -185,7 +185,7 @@ func resolveHooksDir(repoRoot string) (string, error) {
 // outside the deleted range — including CRLF line endings and the file's own
 // trailing-newline state — is preserved byte-for-byte. Returns the modified
 // content; the original is never mutated.
-func stripEnvaultBlock(content string) string {
+func stripCifraBlock(content string) string {
 	beginIdx := strings.Index(content, hookBeginMarker)
 	if beginIdx == -1 {
 		return content

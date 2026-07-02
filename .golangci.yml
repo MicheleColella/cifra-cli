@@ -21,7 +21,7 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/MicheleColella/envault-cli
+        - github.com/MicheleColella/cifra-cli
 
 issues:
   max-issues-per-linter: 0

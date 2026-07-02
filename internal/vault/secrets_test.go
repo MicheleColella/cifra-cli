@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	envcrypto "github.com/MicheleColella/envault-cli/internal/crypto"
+	envcrypto "github.com/MicheleColella/cifra-cli/internal/crypto"
 )
 
 // writeRawStore drops a hand-crafted secrets.enc into an initialized vault so a
@@ -25,7 +25,7 @@ func writeRawStore(t *testing.T, root, json string) {
 }
 
 // TestLoadStore_NewerVersionRejectedClearly is the forward-compatibility guard:
-// a store written by a NEWER envault must fail with an actionable "upgrade"
+// a store written by a NEWER cifra must fail with an actionable "upgrade"
 // message, never be parsed as if it were the current schema.
 func TestLoadStore_NewerVersionRejectedClearly(t *testing.T) {
 	root := t.TempDir()
@@ -35,7 +35,7 @@ func TestLoadStore_NewerVersionRejectedClearly(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error loading a newer-version store, got nil")
 	}
-	if !strings.Contains(err.Error(), "upgrade envault") {
+	if !strings.Contains(err.Error(), "upgrade cifra") {
 		t.Errorf("error should tell the user to upgrade, got %q", err.Error())
 	}
 }

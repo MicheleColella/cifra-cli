@@ -133,7 +133,7 @@ func writeRecipients(repoRoot string, recipients []Recipient) error {
 }
 
 // ParseRecipientLine parses a "<id> <hex-pubkey>" string as written by AddRecipient
-// and produced by "envault key export --public".
+// and produced by "cifra key export --public".
 func ParseRecipientLine(line string) (Recipient, error) {
 	parts := strings.Fields(line)
 	if len(parts) != 2 {

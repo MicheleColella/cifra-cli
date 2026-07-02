@@ -13,7 +13,7 @@ import (
 // non-destructive coexistence invariant (CLAUDE.md) has regressed.
 
 // existingHookVariants covers the shapes of pre-commit hook a real user might
-// already have when they run `envault hook install --git`.
+// already have when they run `cifra hook install --git`.
 func existingHookVariants() map[string]string {
 	return map[string]string{
 		"shebang_single_line":    "#!/bin/sh\necho 'existing check'\n",
@@ -86,7 +86,7 @@ func TestSnapshot_DoubleInstallUninstallCycleIsStable(t *testing.T) {
 }
 
 func TestSnapshot_UninstallOnlyOnlyOwnHookLeavesFileEmpty(t *testing.T) {
-	// When the hook file was created entirely by envault (no prior user
+	// When the hook file was created entirely by cifra (no prior user
 	// content), uninstall must remove the file rather than leave an empty
 	// or shebang-only file behind.
 	dir := gitInitDir(t)
