@@ -138,19 +138,45 @@ func IsSensitiveCifraWriteCmd(cmd string) bool {
 	return cifraSubcommandIs(cmd, "add", "set")
 }
 
-// cifraSubcommandIs reports whether cmd invokes cifra with one of subs as
-// its subcommand, as either the whole command or any stage of a pipeline
-// (e.g. `echo value | cifra add KEY` — the realistic way to feed a value
-// non-interactively), without an explicit --force override anywhere in cmd.
+// cifraSubcommandIs reports whether cmd invokes cifra with one of subs as its
+// subcommand, in ANY segment of a compound shell command, without an explicit
+// --force override in that same segment.
+//
+// This is a BEST-EFFORT early block, NOT the security boundary. It catches the
+// obvious evasions — the full separator set (`|` `||` `&&` `;` `&`, newlines,
+// brace groups, `$(…)`/backtick substitution — see splitShellSegments),
+// `sh -c "…"` nesting, quote-split binary names, and decoy `--force` in a
+// different segment. But a shell command runner can always hide the invocation
+// (`env cifra cat`, `eval "cifra cat"`, `echo K | xargs cifra cat`, …), so this
+// parser can be defeated. That is acceptable because it is not the last line of
+// defense: the REAL guard is in-process — cat/export/add/set each refuse to run
+// in agent mode without --force (runCat / blockSealInAgentMode), which no shell
+// wrapper can parse around. Keep this hook honest about being best-effort;
+// do not grow a wrapper denylist here (an arms race that belongs nowhere).
 func cifraSubcommandIs(cmd string, subs ...string) bool {
-	for _, flag := range strings.Fields(cmd) {
-		if flag == "--force" {
-			return false
-		}
-	}
+	return cifraSubcommandInSegments(cmd, 0, subs)
+}
 
-	for _, segment := range strings.Split(cmd, "|") {
+// shellCmds are the interpreters whose `-c` argument is itself a shell command
+// we must re-scan (otherwise `sh -c "cifra cat K"` hides the invocation).
+var shellCmds = map[string]bool{
+	"sh": true, "bash": true, "zsh": true, "dash": true, "ksh": true,
+}
+
+func cifraSubcommandInSegments(cmd string, depth int, subs []string) bool {
+	if depth > 4 { // guard against pathological nesting; deep enough for real commands
+		return false
+	}
+	for _, segment := range splitShellSegments(cmd) {
 		fields := strings.Fields(segment)
+		if len(fields) == 0 {
+			continue
+		}
+		// Remove shell quotes anywhere in a token so `"cifra`, `cat"`, and
+		// even a quote-split `c"i"fra` all normalize to their real form.
+		for i, f := range fields {
+			fields[i] = quoteStripper.Replace(f)
+		}
 
 		// Skip leading VAR=value environment assignments (e.g. CLAUDE_CODE=1 cifra …)
 		start := 0
@@ -162,6 +188,17 @@ func cifraSubcommandIs(cmd string, subs ...string) bool {
 		}
 
 		first := fields[start]
+
+		// Recurse into `sh -c "<script>"` (and bash/zsh/… -c): the script
+		// string is a nested command that can itself run cifra.
+		if base := first[strings.LastIndex(first, "/")+1:]; shellCmds[base] {
+			if inner := shellDashCScript(fields[start:]); inner != "" {
+				if cifraSubcommandInSegments(inner, depth+1, subs) {
+					return true
+				}
+			}
+		}
+
 		if first != "cifra" && !strings.HasSuffix(first, "/cifra") {
 			continue
 		}
@@ -171,11 +208,63 @@ func cifraSubcommandIs(cmd string, subs ...string) bool {
 		sub := fields[start+1]
 		for _, s := range subs {
 			if sub == s {
+				// --force only disarms the block when it appears in the SAME
+				// segment as the cifra invocation.
+				if segmentHasForce(fields[start:]) {
+					return false
+				}
 				return true
 			}
 		}
 	}
 	return false
+}
+
+func segmentHasForce(fields []string) bool {
+	for _, f := range fields {
+		if f == "--force" {
+			return true
+		}
+	}
+	return false
+}
+
+// shellDashCScript returns the script string passed to a shell's -c flag, with
+// its tokens rejoined (quotes were already stripped by the caller). Empty if
+// there is no -c argument.
+func shellDashCScript(fields []string) string {
+	for i, f := range fields {
+		if f == "-c" && i+1 < len(fields) {
+			return strings.Join(fields[i+1:], " ")
+		}
+	}
+	return ""
+}
+
+// splitShellSegments breaks a shell command line into the segments that run as
+// separate simple commands, splitting on the control operators that end one
+// command and start another (`|` `||` `&&` `;` `&`, newlines) and unwrapping
+// `$(…)` and backtick command substitutions. It is intentionally coarse and
+// fail-closed: it over-segments rather than miss an invocation.
+var quoteStripper = strings.NewReplacer("\"", "", "'", "", "`", "")
+
+func splitShellSegments(cmd string) []string {
+	repl := strings.NewReplacer(
+		"&&", "\x00", "||", "\x00",
+		";", "\x00", "|", "\x00", "&", "\x00",
+		"\n", "\x00", "\r", "\x00",
+		"$(", "\x00", ")", "\x00", "(", "\x00",
+		"{", "\x00", "}", "\x00",
+		"`", "\x00",
+	)
+	parts := strings.Split(repl.Replace(cmd), "\x00")
+	segs := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if strings.TrimSpace(p) != "" {
+			segs = append(segs, p)
+		}
+	}
+	return segs
 }
 
 // IsCifraDir returns true when .cifra/ exists under root.

@@ -21,6 +21,10 @@ func newAddCmd() *cobra.Command {
 			"The plaintext never leaves this machine — only ciphertext is stored.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			force, _ := cmd.Flags().GetBool("force")
+			if err := blockSealInAgentMode(force); err != nil {
+				return err
+			}
 			wd, err := os.Getwd()
 			if err != nil {
 				return fmt.Errorf("get working directory: %w", err)
@@ -32,11 +36,28 @@ func newAddCmd() *cobra.Command {
 			return runAdd(wd, args[0], value)
 		},
 	}
-	// ponytail: --force has no effect here; it exists only as the override
-	// token the Claude Code preuse hook looks for before letting an AI agent
-	// run this command via Bash (see internal/hook/preuse.go).
-	cmd.Flags().Bool("force", false, "acknowledge running this via an AI agent (the hook otherwise blocks it)")
+	// --force overrides the in-process agent-mode guard (blockSealInAgentMode),
+	// the same override the Claude Code preuse hook looks for. The guard is the
+	// real boundary — it holds even when a shell wrapper (env/eval/xargs/…)
+	// slips the command past the hook's best-effort parser.
+	cmd.Flags().Bool("force", false, "acknowledge running this via an AI agent (agent mode otherwise blocks it)")
 	return cmd
+}
+
+// blockSealInAgentMode refuses to seal a new secret when running in agent mode
+// (CLAUDE_CODE=1 / --agent-safe / --json) unless --force is given. Sealing this
+// way requires the plaintext to be embedded in the command, so an AI agent
+// doing it exposes the value to the model exactly like a plaintext read — hence
+// the same refusal cat/export already use (see runCat). This in-process guard
+// is the real boundary: unlike the preuse hook, no shell wrapper (env, eval,
+// xargs, brace groups, quote-splitting the binary name, …) can parse around it.
+func blockSealInAgentMode(force bool) error {
+	if ui.AgentMode && !force {
+		return fmt.Errorf(
+			"sealing a new secret is suppressed in agent mode — seal it yourself in your own terminal, or pass --force to override",
+		)
+	}
+	return nil
 }
 
 // readSecretValue reads a secret value from stdin (piped) or prompts
