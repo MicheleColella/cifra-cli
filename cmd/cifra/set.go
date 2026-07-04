@@ -16,6 +16,10 @@ func newSetCmd() *cobra.Command {
 			"The plaintext never leaves this machine — only ciphertext is stored.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			force, _ := cmd.Flags().GetBool("force")
+			if err := blockSealInAgentMode(force); err != nil {
+				return err
+			}
 			wd, err := os.Getwd()
 			if err != nil {
 				return fmt.Errorf("get working directory: %w", err)
@@ -27,9 +31,9 @@ func newSetCmd() *cobra.Command {
 			return runAdd(wd, args[0], value)
 		},
 	}
-	// ponytail: --force has no effect here; it exists only as the override
-	// token the Claude Code preuse hook looks for before letting an AI agent
-	// run this command via Bash (see internal/hook/preuse.go).
-	cmd.Flags().Bool("force", false, "acknowledge running this via an AI agent (the hook otherwise blocks it)")
+	// --force overrides the in-process agent-mode guard (blockSealInAgentMode),
+	// mirroring add. The guard is the real boundary; the preuse hook is only a
+	// friendly early block that a shell wrapper can slip past.
+	cmd.Flags().Bool("force", false, "acknowledge running this via an AI agent (agent mode otherwise blocks it)")
 	return cmd
 }

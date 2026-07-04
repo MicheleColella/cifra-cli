@@ -151,3 +151,26 @@ func TestRunAdd_MultipleRecipients(t *testing.T) {
 		}
 	}
 }
+
+// TestBlockSealInAgentMode verifies the in-process guard that makes add/set
+// refuse to seal a new secret in agent mode without --force. This is the real
+// boundary the preuse shell parser cannot be relied on to enforce.
+func TestBlockSealInAgentMode(t *testing.T) {
+	ui.AgentMode = true
+	t.Cleanup(func() { ui.AgentMode = false })
+
+	if err := blockSealInAgentMode(false); err == nil {
+		t.Fatal("expected block in agent mode without --force, got nil")
+	} else if !strings.Contains(err.Error(), "agent mode") {
+		t.Errorf("error should mention agent mode, got: %v", err)
+	}
+
+	if err := blockSealInAgentMode(true); err != nil {
+		t.Errorf("--force must override the agent-mode block, got: %v", err)
+	}
+
+	ui.AgentMode = false
+	if err := blockSealInAgentMode(false); err != nil {
+		t.Errorf("non-agent mode must not block, got: %v", err)
+	}
+}
