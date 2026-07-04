@@ -178,6 +178,59 @@ func TestIsSensitiveCifraCmd(t *testing.T) {
 	}
 }
 
+// ---- shell-evasion vectors (red-team regression) --------------------------
+
+// These are the bypasses a red-team pass found against the v1 parser, which
+// only split on `|` and matched --force anywhere in the whole command.
+// The block must fail closed against all of them.
+func TestSensitiveCifraCmd_ShellEvasions(t *testing.T) {
+	mustBlock := []string{
+		"true; cifra cat OPENAI_API_KEY", // ; separator
+		"cd . && cifra cat KEY",          // && separator
+		"false || cifra export",          // || separator
+		`sh -c "cifra cat KEY"`,          // shell -c nesting
+		`bash -c 'cifra export'`,         // bash -c, single quotes
+		"echo $(cifra cat KEY)",          // command substitution
+		"echo `cifra cat KEY`",           // backtick substitution
+		"echo --force; cifra cat KEY",    // decoy --force in another segment
+		"ls\ncifra cat KEY",              // newline separator
+		`sh -c "true; cifra cat KEY"`,    // separator inside -c string
+		"{ cifra cat KEY; }",             // brace group
+		`c"i"fra cat KEY`,                // quote-split binary name
+	}
+	for _, cmd := range mustBlock {
+		if !IsSensitiveCifraCmd(cmd) {
+			t.Errorf("evasion not blocked: %q", cmd)
+		}
+	}
+
+	// --force must still disarm the block when it is in the SAME segment.
+	mustAllow := []string{
+		"true; cifra cat KEY --force",
+		"cd . && cifra cat KEY --force",
+		`sh -c "cifra cat KEY --force"`,
+	}
+	for _, cmd := range mustAllow {
+		if IsSensitiveCifraCmd(cmd) {
+			t.Errorf("in-segment --force should allow: %q", cmd)
+		}
+	}
+}
+
+func TestSensitiveCifraWriteCmd_ShellEvasions(t *testing.T) {
+	mustBlock := []string{
+		"true; echo v | cifra add KEY",
+		`sh -c "echo v | cifra set KEY"`,
+		"cd . && cifra add KEY",
+		"echo --force; echo v | cifra add KEY",
+	}
+	for _, cmd := range mustBlock {
+		if !IsSensitiveCifraWriteCmd(cmd) {
+			t.Errorf("write evasion not blocked: %q", cmd)
+		}
+	}
+}
+
 // ---- IsSensitiveCifraWriteCmd --------------------------------------------
 
 func TestIsSensitiveCifraWriteCmd(t *testing.T) {
