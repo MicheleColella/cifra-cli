@@ -33,6 +33,15 @@ func runPull(repoRoot string) error {
 		return fmt.Errorf("vault not initialized — run `cifra init` first")
 	}
 
+	// Fail closed: if .gitattributes routes secrets.enc to the cifra merge driver
+	// but this clone's .git/config never defined it, the merge below would let git
+	// text-merge the JSON store and corrupt it. Refuse before touching the remote.
+	if git.MergeDriverMisconfigured(repoRoot) {
+		return fmt.Errorf(
+			"git merge driver for secrets.enc is declared but not registered in this clone — run `cifra init --upgrade` first (otherwise a merge would corrupt the vault)",
+		)
+	}
+
 	before, err := vault.LoadStore(repoRoot)
 	if err != nil {
 		return err

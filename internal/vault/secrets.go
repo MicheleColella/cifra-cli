@@ -55,6 +55,9 @@ func LoadStore(repoRoot string) (*Store, error) {
 		return nil, fmt.Errorf("read secrets store: %w", err)
 	}
 
+	if hasConflictMarkers(data) {
+		return nil, ErrConflictMarkers
+	}
 	var s Store
 	if err := json.Unmarshal(data, &s); err != nil {
 		return nil, fmt.Errorf("parse secrets store: %w", err)
@@ -91,15 +94,25 @@ func migrateStore(s *Store) error {
 }
 
 // SaveStore atomically replaces the secrets store inside repoRoot.
+// MarshalStore encodes a store to the exact on-disk byte form SaveStore writes
+// (pretty JSON + trailing newline). Used by the git merge driver, which must
+// write the identical format to an arbitrary path git hands it (%A).
+func MarshalStore(s *Store) ([]byte, error) {
+	data, err := json.MarshalIndent(s, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("encode secrets store: %w", err)
+	}
+	return append(data, '\n'), nil
+}
+
 func SaveStore(repoRoot string, s *Store) error {
 	path := filepath.Join(repoRoot, DirName, secretsFile)
 	tmpPath := path + ".tmp"
 
-	data, err := json.MarshalIndent(s, "", "  ")
+	data, err := MarshalStore(s)
 	if err != nil {
-		return fmt.Errorf("encode secrets store: %w", err)
+		return err
 	}
-	data = append(data, '\n')
 
 	f, err := os.OpenFile(tmpPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
