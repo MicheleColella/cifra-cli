@@ -24,6 +24,42 @@ No new infrastructure required.
 
 ---
 
+## Who Cifra is for
+
+Cifra is **not** trying to replace AWS Secrets Manager, Azure Key Vault, or
+HashiCorp Vault. Those are excellent for large organisations with a dedicated
+platform team, a cloud budget, and needs like managed rotation across cloud
+services, fine-grained IAM, and compliance certifications. Cifra does not compete
+there and does not pretend to.
+
+It is built for a different situation — and for that situation it does something
+those managed vaults architecturally *cannot*:
+
+- **Small-to-medium teams and open-source projects** that don't want to run, pay
+  for, or trust another cloud service just to share a handful of secrets.
+- **Anyone who wants true zero-trust.** A managed vault decrypts your secrets
+  server-side and *can* read them; the provider is part of your trust boundary.
+  Cifra encrypts end-to-end — the remote, and whoever hosts it, only ever sees
+  ciphertext. That is a property a server-side vault cannot offer by design.
+- **Self-hosted / on-prem / restricted-network** setups where there is no managed
+  secrets service to call.
+- **AI-native workflows** — keeping secrets out of an AI agent's context (the
+  Privacy Shield) is a problem managed vaults simply don't address.
+- **Git-native simplicity** — no infrastructure at all: the Git remote you
+  already have *is* the backend.
+
+**Cost:** Cifra is free and open-source (MIT). No account, no server, no
+subscription — you only need a Git remote you already use. Managed vaults, by
+contrast, bill per secret and per API call, which adds up for a team whose CI
+reads secrets constantly.
+
+The honest one-liner: if you need managed rotation across dozens of cloud
+services and enterprise compliance, use a managed vault. If you want secrets
+shared safely through the Git repo you already have, without trusting a third
+party, Cifra is for you.
+
+---
+
 ## Install
 
 **One-line install** (macOS / Linux, amd64 / arm64) — downloads the latest signed
@@ -176,6 +212,58 @@ tools directly, no passphrase involved.
 
 ---
 
+## Working as a team
+
+Secrets are encrypted for a specific set of **recipients**. Every teammate has
+their own keypair; each secret is wrapped so only current recipients can decrypt
+it. Onboarding someone is a one-time exchange of **public** keys — there is no
+shared password, and no private key ever changes hands or leaves a machine.
+
+**The new teammate**, on their own machine:
+
+```sh
+cifra key new --id bob@example.com               # generates their keypair (private key stays in their keychain)
+cifra key export --id bob@example.com > bob.pub  # writes their PUBLIC key
+```
+
+They send you `bob.pub`. A public key is not secret — email, Slack, or a PR is
+fine.
+
+**An existing member** (anyone already able to decrypt the vault):
+
+```sh
+cifra key import bob.pub   # adds Bob as a recipient
+cifra push                 # re-wraps every secret for the new recipient set, then pushes
+```
+
+`push` uses *your* private key to re-wrap each secret's data key for Bob. The
+secret values are never re-uploaded in plaintext, and your private key never
+leaves your machine.
+
+**Bob** then pulls and is immediately productive:
+
+```sh
+cifra pull                 # gets the vault, now decryptable with his key
+cifra run -- npm start     # secrets injected in memory, nothing on disk
+```
+
+**Removing someone** is the mirror image, and this is the part that matters for
+real revocation:
+
+```sh
+cifra key delete --id bob@example.com   # drop Bob from the recipient set
+cifra rotate DATABASE_URL               # re-seal with a fresh data key for remaining recipients
+cifra push
+```
+
+Deleting a recipient stops *future* secrets from being wrapped for them, but
+someone who kept an old clone still holds the old wrapped data key. `cifra rotate`
+generates a brand-new data key and re-encrypts the value, so the copy they kept
+can no longer decrypt the current secret. **After a departure, rotate the secrets
+that matter** — that is what actually revokes access, not the delete alone.
+
+---
+
 ## Claude Code plugin
 
 Cifra ships as a [Claude Code](https://claude.com/claude-code) plugin — see
@@ -272,6 +360,46 @@ Cifra is designed so that you do not have to trust anyone except your Git remote
 - **Integrity guaranteed** — ciphertext is authenticated; any tampering is detected and rejected before decryption.
 - **Key-unlock agent is opt-in and clearly bounded** — `cifra agent unlock` trades the "decrypt on demand, clear immediately" norm for a decrypted key cached in memory for a bounded TTL (default 8h), so headless callers (Claude Code) can skip the passphrase. Nothing changes unless you explicitly run it; `cifra status`/`doctor` always show whether it's active.
 
+### Under the hood (techniques)
+
+Cifra composes standard, well-reviewed primitives rather than inventing crypto —
+the design is public (only your keys and passphrase are secret):
+
+- **Envelope encryption (hybrid / ECIES-style).** Each secret gets a fresh random
+  256-bit *data key*; that data key encrypts the payload and is then wrapped
+  separately for each recipient. Adding or removing a recipient re-wraps the data
+  key without re-encrypting the payload.
+- **Authenticated payload encryption.** AES-256-GCM (or ChaCha20-Poly1305), so
+  any tampering with the ciphertext is detected and rejected before decryption.
+- **Per-recipient key wrapping.** X25519 elliptic-curve Diffie–Hellman with a
+  fresh ephemeral keypair per recipient, run through HKDF-SHA256 to derive the
+  wrapping key. Recipient and ephemeral public keys are bound into the
+  authenticated data, so a wrapped key can't be transplanted between envelopes;
+  low-order public keys are rejected at import.
+- **Key protection at rest.** Your private key is sealed in the OS keychain and,
+  on top of that, encrypted under an **Argon2id**-derived key (memory-hard, tuned
+  to make offline guessing expensive) — a stolen keychain blob is useless without
+  your passphrase.
+- **Memory hardening.** Key material is best-effort locked out of swap and
+  excluded from core dumps while in use, then zeroed.
+- **Tamper-evident audit log.** AI-access events are recorded in a hash-chained
+  log, so editing or deleting past entries is detectable.
+- **Defense in depth for AI access.** The Privacy Shield enforces its rules in
+  more than one layer, so a single evasion does not expose plaintext. The precise
+  enforcement internals are intentionally *not* documented here: the design is
+  open, but publishing a step-by-step of every check would only help someone probe
+  it. See [SECURITY.md](SECURITY.md) for the threat model and its limits.
+
+### Connectivity — what works offline
+
+Cifra's cryptography is fully local. Initialising a vault, adding/rotating
+secrets, and `cifra run -- <cmd>` (encrypt, decrypt, in-memory inject) all work
+**offline** — there is no service to call. What needs a network is only the parts
+that inherently do: **sharing** the vault (`cifra push`/`pull` talk to your Git
+remote) and the **Claude Code** integration (installing the plugin, and Claude
+Code itself). So you can keep using your secrets on a plane; you just can't sync
+them with teammates or drive Claude Code until you're back online.
+
 ---
 
 ## Status
@@ -297,7 +425,8 @@ install from signed cross-platform releases.
 | v0.9.4 — Key-unlock agent (ssh-agent-style, passphrase-free Claude Code UX) | ✅ shipped |
 | v0.9.5 — Integration testing (Forgejo container E2E) | ✅ shipped |
 | v0.9.6 — Security hardening & coverage | ✅ shipped |
-| v0.9.7 — Custom Git merge driver & disaster recovery | 🔜 next |
+| v0.9.7 — Custom Git merge driver | 🔜 next |
+| v0.9.8 — Disaster recovery (OS-native local key backup) | planned |
 | v1.0.0 — Stable release | planned |
 
 ---
