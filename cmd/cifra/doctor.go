@@ -24,6 +24,8 @@ type doctorResult struct {
 	Recipients      int    `json:"recipients"`
 	Secrets         int    `json:"secrets"`
 	GitHook         bool   `json:"git_hook"`
+	MergeDriver     bool   `json:"merge_driver"`      // registered in .git/config
+	MergeDriverWarn bool   `json:"merge_driver_warn"` // declared in .gitattributes but not registered
 	PrivacyShield   int    `json:"privacy_shield_patterns"`
 	AgentRunning    bool   `json:"agent_running"`
 	AgentUnlocked   int    `json:"agent_unlocked_keys"`
@@ -54,6 +56,8 @@ func runDoctor(repoRoot string) error {
 		GitRemote:       redactRemote(remote),
 		Initialized:     vault.IsInitialized(repoRoot),
 		GitHook:         hook.IsGitHookInstalled(repoRoot),
+		MergeDriver:     git.IsMergeDriverRegistered(repoRoot),
+		MergeDriverWarn: git.MergeDriverMisconfigured(repoRoot),
 	}
 	if res.Initialized {
 		if r, err := vault.ListRecipients(repoRoot); err == nil {
@@ -95,6 +99,11 @@ func runDoctor(repoRoot string) error {
 	ui.Info(fmt.Sprintf("  Recipients               %d", res.Recipients))
 	ui.Info(fmt.Sprintf("  Secrets                  %d", res.Secrets))
 	ui.Info(fmt.Sprintf("  Git hook                 %s", check(res.GitHook)))
+	mergeStr := check(res.MergeDriver)
+	if res.MergeDriverWarn {
+		mergeStr = "✗ declared but not registered — run `cifra init --upgrade`"
+	}
+	ui.Info(fmt.Sprintf("  Merge driver             %s", mergeStr))
 	ui.Info(fmt.Sprintf("  Privacy Shield patterns  %d", res.PrivacyShield))
 	ui.Info(fmt.Sprintf("  Key-unlock agent         %s (%d key(s) unlocked)", check(res.AgentRunning), res.AgentUnlocked))
 	ui.Info("  Claude Code              install the Cifra plugin (" + pluginInstallHint + ")")

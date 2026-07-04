@@ -1,6 +1,6 @@
 {
   "name": "cifra",
-  "version": "0.9.5",
+  "version": "0.9.7",
   "description": "Git-backed, zero-trust secrets CLI with an AI Privacy Shield: blocks agents from reading vault secrets and masks any secret values that leak into model context.",
   "author": {
     "name": "Michele Colella",

@@ -13,7 +13,7 @@ import (
 )
 
 func newInitCmd() *cobra.Command {
-	var force bool
+	var force, upgrade bool
 
 	cmd := &cobra.Command{
 		Use:   "init",
@@ -23,11 +23,16 @@ func newInitCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("get working directory: %w", err)
 			}
+			if upgrade {
+				return runInitUpgrade(wd)
+			}
 			return runInit(wd, force)
 		},
 	}
 
 	cmd.Flags().BoolVar(&force, "force", false, "reinitialize an existing vault")
+	cmd.Flags().BoolVar(&upgrade, "upgrade", false,
+		"register the git merge driver on an existing vault (for repos cloned before it existed)")
 	return cmd
 }
 
@@ -46,6 +51,9 @@ func runInit(repoRoot string, force bool) error {
 			// TestRunInit_AlreadyInitialized) so --force is still required there.
 			if git.IsVaultTracked(repoRoot) {
 				ui.Info(fmt.Sprintf("Vault already initialized at %s/", vault.DirName))
+				// Still ensure the merge driver is registered locally — .git/config
+				// does not travel with a clone, so a cloned vault needs it added.
+				registerMergeDriver(repoRoot)
 				return nil
 			}
 			return err
@@ -61,5 +69,37 @@ func runInit(repoRoot string, force bool) error {
 		ui.Info("remote   (none detected — run inside a git repository with an origin remote)")
 	}
 	ui.Info("No third-party server — your remote is the only backend.")
+	registerMergeDriver(repoRoot)
 	return nil
+}
+
+// runInitUpgrade registers the git merge driver on an already-initialized vault,
+// for repos cloned before the driver existed (or before this machine ran init).
+// It does not re-create vault files.
+func runInitUpgrade(repoRoot string) error {
+	if !vault.IsInitialized(repoRoot) {
+		return fmt.Errorf("no vault to upgrade — run `cifra init` first")
+	}
+	registerMergeDriver(repoRoot)
+	ui.OK("Vault upgraded — git merge driver registered")
+	return nil
+}
+
+// registerMergeDriver wires the ciphertext-only merge driver into git: the local
+// .git/config definition and the committed .gitattributes route. Failures are
+// warned, not fatal — the vault still works, and `cifra pull` refuses loudly (via
+// git.MergeDriverMisconfigured) if the config half is missing.
+func registerMergeDriver(repoRoot string) {
+	if err := git.RegisterMergeDriver(repoRoot); err != nil {
+		ui.Warn("could not register git merge driver in .git/config: " + err.Error())
+		return
+	}
+	added, err := git.EnsureGitAttributes(repoRoot)
+	if err != nil {
+		ui.Warn("could not update .gitattributes: " + err.Error())
+		return
+	}
+	if added {
+		ui.Info("git merge driver registered (.gitattributes + .git/config) — commit .gitattributes to share it")
+	}
 }

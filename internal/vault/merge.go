@@ -1,10 +1,24 @@
 package vault
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"sort"
 )
+
+// hasConflictMarkers reports whether data contains a git text-merge conflict
+// marker at the start of a line (`<<<<<<< `, `=======`, `>>>>>>> `). Checked
+// line-anchored so legitimate base64 ciphertext containing these bytes mid-line
+// never trips it.
+func hasConflictMarkers(data []byte) bool {
+	for _, marker := range [][]byte{[]byte("<<<<<<< "), []byte(">>>>>>> "), []byte("=======\n")} {
+		if bytes.HasPrefix(data, marker) || bytes.Contains(data, append([]byte("\n"), marker...)) {
+			return true
+		}
+	}
+	return false
+}
 
 // MergeConflict describes an entry-level conflict that could not be auto-resolved.
 // The caller must surface this to the user and abort the merge.
@@ -28,9 +42,18 @@ type entryKey struct {
 	Kind EntryKind
 }
 
+// ErrConflictMarkers is returned by ParseStore when secrets.enc contains git
+// text-merge conflict markers — the corruption that happens when git text-merges
+// the JSON store because the `cifra` merge driver was not registered (a teammate
+// merged before running `cifra init --upgrade`). Actionable, never silent.
+var ErrConflictMarkers = fmt.Errorf("secrets.enc contains git conflict markers — it was text-merged without the cifra merge driver; run `cifra init --upgrade`, then re-resolve (e.g. `cifra pull`)")
+
 // ParseStore decodes a JSON-encoded secrets store from raw bytes.
 // Returns an error if the bytes are not valid JSON or the version is unsupported.
 func ParseStore(data []byte) (*Store, error) {
+	if hasConflictMarkers(data) {
+		return nil, ErrConflictMarkers
+	}
 	var s Store
 	if err := json.Unmarshal(data, &s); err != nil {
 		return nil, fmt.Errorf("parse secrets store: %w", err)

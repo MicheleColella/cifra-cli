@@ -43,6 +43,7 @@ ciphertext; private keys never leave the machine.
 | Manage protected paths | `cifra protect add\|list\|remove <path>` | either |
 | Audit log | `cifra audit log show` / `verify` | either |
 | Diagnose install | `cifra doctor` | either |
+| Register the git merge driver after cloning a vault repo | `cifra init --upgrade` | user |
 | Unlock the key for passphrase-free use | `cifra agent unlock` | **user only**, in their own terminal |
 | Check what's unlocked / lock again | `cifra agent status` / `lock` | either |
 

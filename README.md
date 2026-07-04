@@ -307,7 +307,7 @@ is missing.
 
 | Command | Description | Status |
 |---|---|---|
-| `cifra init` | Initialise a vault in the current repo | ✅ |
+| `cifra init` | Initialise a vault in the current repo (registers the `secrets.enc` git merge driver; `--upgrade` adds it to a cloned vault) | ✅ |
 | `cifra agent unlock/lock/stop/status` | Unlock your key into a background agent for passphrase-free use (Claude Code MCP, `postuse` masking) | ✅ |
 | `cifra key new` | Generate an identity key (sealed in OS keychain) | ✅ |
 | `cifra key list` | List vault recipients | ✅ |
@@ -425,8 +425,8 @@ install from signed cross-platform releases.
 | v0.9.4 — Key-unlock agent (ssh-agent-style, passphrase-free Claude Code UX) | ✅ shipped |
 | v0.9.5 — Integration testing (Forgejo container E2E) | ✅ shipped |
 | v0.9.6 — Security hardening & coverage | ✅ shipped |
-| v0.9.7 — Custom Git merge driver | 🔜 next |
-| v0.9.8 — Disaster recovery (OS-native local key backup) | planned |
+| v0.9.7 — Custom Git merge driver (ciphertext-only `secrets.enc` merges) | ✅ shipped |
+| v0.9.8 — Disaster recovery (OS-native local key backup) | 🔜 next |
 | v1.0.0 — Stable release | planned |
 
 ---
